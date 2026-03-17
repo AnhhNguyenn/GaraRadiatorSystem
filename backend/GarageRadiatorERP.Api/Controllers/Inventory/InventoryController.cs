@@ -30,5 +30,12 @@ namespace GarageRadiatorERP.Api.Controllers.Inventory
             var batch = await _inventoryService.CreateBatchAsync(createDto);
             return Ok(batch);
         }
+
+        [HttpPost("purchases")]
+        public async Task<ActionResult<PurchaseOrderDto>> CreatePurchaseOrder(CreatePurchaseOrderDto createDto)
+        {
+            var po = await _inventoryService.CreatePurchaseOrderAsync(createDto);
+            return Ok(po);
+        }
     }
 }

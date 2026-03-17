@@ -1,105 +1,193 @@
 'use client';
 
-import { Save, Store, Printer, Link as LinkIcon, Users, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, Store, Printer, Link as LinkIcon, Users, Shield, CheckCircle2, Globe, Bell, History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
+  const [storeName, setStoreName] = useState("Garage Radiator Parts");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("erp_store_name");
+    if (saved) setStoreName(saved);
+  }, []);
+
+  const handleSave = () => {
+    setSaving(true);
+    localStorage.setItem("erp_store_name", storeName);
+    setTimeout(() => {
+      setSaving(false);
+      alert("Đã lưu cấu hình thành công!");
+    }, 500);
+  };
+
+  const handleConnectShopee = () => {
+    window.location.href = "https://localhost:5248/api/platforms/auth/shopee/callback?code=mock_code&shop_id=999";
+  };
+
+  const handleConnectTikTok = () => {
+    window.location.href = "https://localhost:5248/api/platforms/auth/tiktok/callback?auth_code=mock_code&state=tiktok";
+  };
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Cài đặt hệ thống</h1>
-        <p className="text-sm text-slate-500">Cấu hình thông tin cửa hàng, máy in và kết nối nền tảng.</p>
+    <div className="space-y-10 max-w-5xl pb-10">
+      <div className="px-2">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Cài đặt hệ thống</h1>
+        <p className="text-sm font-medium text-slate-500">Cấu hình thông tin cửa hàng, máy in và kết nối nền tảng thương mại.</p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center gap-3 bg-slate-50">
-          <Store className="h-5 w-5 text-slate-500" />
-          <h2 className="text-lg font-semibold text-slate-900">Thông tin cửa hàng</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tên cửa hàng</label>
-              <input type="text" defaultValue="Garage Radiator Parts" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-1">
+        <div className="md:col-span-2 space-y-8">
+          {/* Thông tin cửa hàng */}
+          <div className="ios-card overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Store className="h-5 w-5 text-primary" />
+              </div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Thông tin cửa hàng</h2>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-              <input type="text" defaultValue="0901234567" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ</label>
-              <input type="text" defaultValue="123 Đường ABC, Quận XYZ, TP.HCM" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Mã số thuế</label>
-              <input type="text" defaultValue="0312345678" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center gap-3 bg-slate-50">
-          <LinkIcon className="h-5 w-5 text-slate-500" />
-          <h2 className="text-lg font-semibold text-slate-900">Kết nối nền tảng (Webhook)</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-[#f97316] rounded-md flex items-center justify-center text-white font-bold text-xl">S</div>
-              <div>
-                <p className="font-medium text-slate-900">Shopee</p>
-                <p className="text-sm text-emerald-600 flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  Đã kết nối
-                </p>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tên cửa hàng</label>
+                  <Input value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Số điện thoại</label>
+                  <Input defaultValue="0901234567" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Địa chỉ</label>
+                  <Input defaultValue="123 Đường ABC, Quận XYZ, TP.HCM" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mã số thuế</label>
+                  <Input defaultValue="0312345678" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email hỗ trợ</label>
+                  <Input defaultValue="support@radiatorerp.com" />
+                </div>
               </div>
             </div>
-            <button className="px-3 py-1.5 border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50">Cấu hình</button>
           </div>
-          <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-black rounded-md flex items-center justify-center text-white font-bold text-xl">T</div>
-              <div>
-                <p className="font-medium text-slate-900">TikTok Shop</p>
-                <p className="text-sm text-emerald-600 flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  Đã kết nối
-                </p>
+
+          {/* Cấu hình máy in */}
+          <div className="ios-card overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 rounded-xl">
+                <Printer className="h-5 w-5 text-indigo-500" />
+              </div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Cấu hình máy in</h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Máy in hóa đơn (Bill)</label>
+                  <Select defaultValue="xprinter">
+                    <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                      <SelectValue placeholder="Chọn máy in" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="xprinter">Xprinter XP-N160II (80mm)</SelectItem>
+                      <SelectItem value="epson">Epson TM-T82III (80mm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Máy in nhãn (Shipping)</label>
+                  <Select defaultValue="xp420b">
+                    <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                      <SelectValue placeholder="Chọn máy in nhãn" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="xp420b">Xprinter XP-420B (A6)</SelectItem>
+                      <SelectItem value="zebra">Zebra ZD230 (A6)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            <button className="px-3 py-1.5 border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50">Cấu hình</button>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          {/* Kết nối nền tảng */}
+          <div className="ios-card overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 rounded-xl">
+                <LinkIcon className="h-5 w-5 text-emerald-500" />
+              </div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Đa kênh</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-4 rounded-2xl border border-slate-100 bg-white shadow-sm flex items-center justify-between group hover:border-primary/20 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-[#f97316] rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-[#f97316]/20">S</div>
+                  <div>
+                    <p className="text-xs font-black text-slate-900 tracking-tight">Shopee</p>
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight">Đang hoạt động</p>
+                    </div>
+                  </div>
+                </div>
+                <Button variant="ghost" size="xs" onClick={handleConnectShopee} className="rounded-lg font-black text-[10px] uppercase text-primary hover:bg-primary/5">Refresh</Button>
+              </div>
+
+              <div className="p-4 rounded-2xl border border-slate-100 bg-white shadow-sm flex items-center justify-between group hover:border-primary/20 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-black rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-black/20">T</div>
+                  <div>
+                    <p className="text-xs font-black text-slate-900 tracking-tight">TikTok Shop</p>
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-slate-300"></div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Chưa kết nối</p>
+                    </div>
+                  </div>
+                </div>
+                <Button variant="ghost" size="xs" onClick={handleConnectTikTok} className="rounded-lg font-black text-[10px] uppercase text-slate-900 hover:bg-slate-100">Kết nối</Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bảo mật */}
+          <div className="ios-card overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-3">
+              <div className="p-2 bg-rose-50 rounded-xl">
+                <Shield className="h-5 w-5 text-rose-500" />
+              </div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Bảo mật</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <Button variant="outline" className="w-full justify-start rounded-xl text-xs font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <History className="h-4 w-4 text-slate-400" />
+                Lịch sử đăng nhập
+              </Button>
+              <Button variant="outline" className="w-full justify-start rounded-xl text-xs font-bold gap-3 border-slate-100 hover:bg-slate-50">
+                <Bell className="h-4 w-4 text-slate-400" />
+                Cấu hình thông báo
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center gap-3 bg-slate-50">
-          <Printer className="h-5 w-5 text-slate-500" />
-          <h2 className="text-lg font-semibold text-slate-900">Cấu hình máy in</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Máy in hóa đơn POS (80mm)</label>
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
-              <option>Xprinter XP-N160II (USB)</option>
-              <option>Epson TM-T82III (LAN)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Máy in mã vạch / Vận đơn</label>
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
-              <option>Xprinter XP-420B (USB)</option>
-              <option>Godex G500 (LAN)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <button className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
-          <Save className="mr-2 h-4 w-4" />
-          Lưu thay đổi
-        </button>
+      <div className="flex justify-end pt-4 px-1">
+        <Button onClick={handleSave} disabled={saving} className="rounded-2xl px-12 h-14 bg-primary shadow-xl shadow-primary/25 text-lg">
+          <Save className="mr-3 h-5 w-5" />
+          {saving ? 'Đang lưu hệ thống...' : 'Lưu tất cả thay đổi'}
+        </Button>
       </div>
     </div>
   );

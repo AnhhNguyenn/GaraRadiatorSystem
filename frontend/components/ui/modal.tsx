@@ -26,7 +26,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-md' 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className={`relative z-50 w-full ${maxWidth} rounded-xl bg-white shadow-2xl ring-1 ring-slate-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]`}>
+      <div className={`relative z-50 w-full ${maxWidth} rounded-[2rem] bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] ring-1 ring-slate-200/50 flex flex-col max-h-[95vh] sm:max-h-[90vh]`}>
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4 shrink-0">
           <h2 className="text-base sm:text-lg font-semibold text-slate-900">{title}</h2>
           <button onClick={onClose} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-500 transition-colors">

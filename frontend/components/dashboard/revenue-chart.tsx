@@ -32,17 +32,37 @@ export function RevenueChart() {
           bottom: 5,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(value) => `${value / 1000000}M`} />
+        <CartesianGrid strokeDasharray="0" vertical={false} stroke="oklch(0.95 0 0)" />
+        <XAxis 
+          dataKey="name" 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 12, fontWeight: 600 }} 
+          dy={10}
+        />
+        <YAxis 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11, fontWeight: 600 }} 
+          tickFormatter={(value) => `${value / 1000000}M`}
+          dx={-10}
+        />
         <Tooltip
-          cursor={{ fill: '#f1f5f9' }}
-          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+          cursor={{ fill: 'oklch(0.98 0 0)' }}
+          contentStyle={{ 
+            borderRadius: '24px', 
+            border: 'none', 
+            boxShadow: '0 12px 48px rgba(0, 0, 0, 0.12)',
+            padding: '12px 16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(16px)'
+          }}
+          itemStyle={{ fontWeight: 700, fontSize: '12px' }}
           formatter={(value: any) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)}
         />
-        <Bar dataKey="offline" name="Cửa hàng" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} />
-        <Bar dataKey="shopee" name="Shopee" stackId="a" fill="#f97316" />
-        <Bar dataKey="tiktok" name="TikTok" stackId="a" fill="#000000" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="offline" name="Cửa hàng" stackId="a" fill="oklch(0.55 0.2 250)" radius={[0, 0, 4, 4]} />
+        <Bar dataKey="shopee" name="Shopee" stackId="a" fill="oklch(0.65 0.2 40)" />
+        <Bar dataKey="tiktok" name="TikTok" stackId="a" fill="oklch(0.2 0 0)" radius={[10, 10, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

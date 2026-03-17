@@ -17,18 +17,22 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         [HttpGet("profit-report")]
         public async Task<IActionResult> GetProfitReport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
-            // Thực tế: Lấy tất cả Order hoàn thành trong kỳ, map với InventoryBatch đã trừ, tính TotalCost.
-            // Dữ liệu mô phỏng để test cho Dashboard Next.js:
-            var result = new {
-                Revenue = 145000000,
-                CostOfGoodsSold = 85000000, // FIFO Cost calculated
-                GrossProfit = 60000000,
-                OperatingExpenses = 12000000,
-                NetProfit = 48000000,
-                Period = $"{startDate?.ToString("dd/MM/yyyy") ?? "01/03/2026"} - {endDate?.ToString("dd/MM/yyyy") ?? "31/03/2026"}"
+            var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var end = endDate ?? DateTime.UtcNow;
+
+            var result = await _financeService.GetProfitReportAsync(start, end);
+
+            // Gắn thêm Period format cho Front-end dễ hiển thị
+            var response = new {
+                Revenue = result.TotalRevenue,
+                CostOfGoodsSold = result.TotalCost,
+                GrossProfit = result.TotalRevenue - result.TotalCost,
+                OperatingExpenses = result.TotalExpense,
+                NetProfit = result.NetProfit,
+                Period = $"{start.ToString("dd/MM/yyyy")} - {end.ToString("dd/MM/yyyy")}"
             };
 
-            return Ok(result);
+            return Ok(response);
         }
 
         [HttpPost("expenses")]

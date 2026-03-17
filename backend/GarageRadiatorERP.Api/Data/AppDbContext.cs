@@ -55,6 +55,8 @@ namespace GarageRadiatorERP.Api.Data
         public DbSet<PlatformPayload> PlatformPayloads { get; set; }
         public DbSet<PlatformConversation> PlatformConversations { get; set; }
         public DbSet<PlatformMessage> PlatformMessages { get; set; }
+        public DbSet<PlatformStore> PlatformStores { get; set; }
+        public DbSet<PlatformToken> PlatformTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

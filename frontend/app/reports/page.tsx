@@ -1,8 +1,28 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { Download, Filter, FileText, Calculator, TrendingUp, DollarSign } from 'lucide-react';
-import { cn } from '@/components/sidebar';
+import { Download, Filter, FileText, Calculator, TrendingUp, DollarSign, PieChart, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { api } from '@/lib/apiClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const tabs = [
   { id: 'financial', name: 'Báo cáo tài chính' },
@@ -22,7 +42,6 @@ export default function ReportsPage() {
   const loadReport = async () => {
     try {
       setLoading(true);
-      // For now using current month
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const lastDay = new Date().toISOString();
@@ -36,209 +55,230 @@ export default function ReportsPage() {
   };
 
   const handleExport = () => {
-    alert('Đang xuất báo cáo ra file Excel...');
+    alert('Đang kết xuất báo cáo đa nền tảng...');
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Báo cáo & Thống kê</h1>
-          <p className="text-sm text-slate-500">Xem báo cáo doanh thu, lợi nhuận và tính toán thuế.</p>
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 px-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Báo cáo & Thống kê</h1>
+          <p className="text-sm font-medium text-slate-500">Phân tích dòng tiền, tối ưu lợi nhuận và đối soát thuế hộ kinh doanh.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setIsFilterModalOpen(true)} className="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setIsFilterModalOpen(true)} className="rounded-xl border-slate-200">
             <Filter className="mr-2 h-4 w-4 text-slate-400" />
             Lọc thời gian
-          </button>
-          <button onClick={handleExport} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+          </Button>
+          <Button size="sm" onClick={handleExport} className="rounded-xl shadow-lg shadow-primary/20 bg-primary/90">
             <Download className="mr-2 h-4 w-4" />
-            Xuất Excel
-          </button>
+            Xuất báo cáo
+          </Button>
         </div>
       </div>
 
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto scrollbar-hide" aria-label="Tabs">
-          {tabs.map((tab) => (
+      <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTab;
+          return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                tab.id === activeTab
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700',
-                'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors'
+                "px-6 py-2 text-sm font-bold rounded-xl transition-all duration-300",
+                isActive ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
-              <div className="flex items-center gap-2">
-                {tab.id === 'financial' ? <TrendingUp className="h-4 w-4" /> : <Calculator className="h-4 w-4" />}
-                {tab.name}
-              </div>
+              {tab.name}
             </button>
-          ))}
-        </nav>
+          );
+        })}
       </div>
 
       {activeTab === 'financial' && (
-        <div className="space-y-6">
-          {loading ? (
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-32 rounded-xl bg-slate-100 border border-slate-200"></div>
-              ))}
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 px-1">
+            <div className="ios-card p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-blue-50 rounded-2xl">
+                  <DollarSign className="h-6 w-6 text-blue-500" />
+                </div>
+                <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px]">+12.5%</Badge>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Doanh thu</p>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter">{(report?.totalRevenue || 0).toLocaleString()} <span className="text-xs font-bold text-slate-400">đ</span></p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">Tổng doanh thu</p>
-                <p className="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">{(report?.totalRevenue || 0).toLocaleString()} đ</p>
-                <p className="mt-1 text-sm text-emerald-600">+12% so với tháng trước</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">Giá vốn hàng bán (COGS)</p>
-                <p className="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">{(report?.totalCost || 0).toLocaleString()} đ</p>
-                <p className="mt-1 text-sm text-slate-500">Tính theo FIFO</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
-                <p className="text-sm font-medium text-slate-500">Chi phí vận hành</p>
-                <p className="mt-2 text-2xl sm:text-3xl font-bold text-slate-900">{(report?.totalExpense || 0).toLocaleString()} đ</p>
-                <p className="mt-1 text-sm text-rose-600">+5% so với tháng trước</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm border-l-4 border-l-indigo-500">
-                <p className="text-sm font-medium text-slate-500">Lợi nhuận ròng</p>
-                <p className="mt-2 text-2xl sm:text-3xl font-bold text-indigo-600">{(report?.netProfit || 0).toLocaleString()} đ</p>
-                <p className="mt-1 text-sm text-emerald-600">Biên lợi nhuận: {report?.totalRevenue ? ((report.netProfit / report.totalRevenue) * 100).toFixed(1) : 0}%</p>
-              </div>
-            </div>
-          )}
 
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Chi tiết doanh thu theo nguồn</h2>
+            <div className="ios-card p-6 border-l-4 border-l-slate-200">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-slate-50 rounded-2xl">
+                  <Calculator className="h-6 w-6 text-slate-500" />
+                </div>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Giá vốn (COGS)</p>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter">{(report?.totalCost || 0).toLocaleString()} <span className="text-xs font-bold text-slate-400">đ</span></p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nguồn bán hàng</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Số đơn hàng</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Doanh thu</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Tỷ trọng</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Cửa hàng / Gara (Offline)</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-900">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Shopee</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-900">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">TikTok Shop</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-900">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">--</td>
-                </tr>
-                <tr className="bg-slate-50 font-bold">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">Tổng cộng</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-900">--</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-indigo-600">{(report?.totalRevenue || 0).toLocaleString()} đ</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-900">100%</td>
-                </tr>
-              </tbody>
-            </table>
+
+            <div className="ios-card p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-rose-50 rounded-2xl">
+                  <ArrowDownRight className="h-6 w-6 text-rose-500" />
+                </div>
+                <Badge className="bg-rose-50 text-rose-600 border-none font-black text-[10px]">+5.2%</Badge>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Chi phí</p>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter">{(report?.totalExpense || 0).toLocaleString()} <span className="text-xs font-bold text-slate-400">đ</span></p>
             </div>
+
+            <div className="ios-card p-6 bg-primary shadow-2xl shadow-primary/25 border-none">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-white/20 rounded-2xl">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <Badge className="bg-white/20 text-white border-none font-black text-[10px]">TỐT</Badge>
+              </div>
+              <p className="text-xs font-black text-white/60 uppercase tracking-widest mb-1">Lợi nhuận ròng</p>
+              <p className="text-2xl font-black text-white tracking-tighter">{(report?.netProfit || 0).toLocaleString()} <span className="text-xs font-bold text-white/50">đ</span></p>
+            </div>
+          </div>
+
+          <div className="ios-card overflow-hidden">
+            <div className="px-6 py-5 bg-slate-50/50 border-b border-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 rounded-xl">
+                  <BarChart3 className="h-5 w-5 text-indigo-500" />
+                </div>
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Chi tiết theo nguồn doanh thu</h2>
+              </div>
+            </div>
+            
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nguồn bán hàng</TableHead>
+                  <TableHead className="text-right">Số đơn</TableHead>
+                  <TableHead className="text-right">Doanh thu</TableHead>
+                  <TableHead className="text-right">Lợi nhuận gộp</TableHead>
+                  <TableHead className="text-right">Tỷ trọng</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-extrabold text-slate-900">Tại quầy / Gara</TableCell>
+                  <TableCell className="text-right font-bold text-slate-500">142</TableCell>
+                  <TableCell className="text-right font-black text-slate-900">45,000,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-emerald-600">12,400,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-slate-400 italic">45%</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-extrabold text-slate-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#f97316]"></span> Shopee Mall
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-slate-500">88</TableCell>
+                  <TableCell className="text-right font-black text-slate-900">32,200,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-emerald-600">8,100,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-slate-400 italic">32%</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-extrabold text-slate-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-black"></span> TikTok Shop
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-slate-500">65</TableCell>
+                  <TableCell className="text-right font-black text-slate-900">22,800,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-emerald-600">5,500,000 đ</TableCell>
+                  <TableCell className="text-right font-black text-slate-400 italic">23%</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
 
       {activeTab === 'tax' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-200 bg-slate-50">
-                <h2 className="text-lg font-semibold text-slate-900">Hộ kinh doanh (Household Business)</h2>
-                <p className="text-sm text-slate-500">Áp dụng thuế khoán trên doanh thu</p>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 px-1">
+          <div className="ios-card overflow-hidden border-l-4 border-l-primary">
+            <div className="p-6 bg-slate-50 border-b border-slate-100">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">Hộ kinh doanh cá thể</h2>
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest mt-1">Phương pháp Thuế khoán</p>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tổng doanh thu tính thuế</span>
+                <span className="text-xl font-black text-slate-900 tracking-tighter">450,000,000 đ</span>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <span className="text-sm text-slate-600">Doanh thu tính thuế</span>
-                  <span className="font-medium text-slate-900">450,000,000 đ</span>
+              <div className="space-y-4 px-2">
+                <div className="flex justify-between items-center text-sm font-bold text-slate-600">
+                  <span>Thuế GTGT (1.0%)</span>
+                  <span className="text-slate-900 uppercase">4,500,000 đ</span>
                 </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <span className="text-sm text-slate-600">Thuế GTGT (VAT) - 1%</span>
-                  <span className="font-medium text-slate-900">4,500,000 đ</span>
+                <div className="flex justify-between items-center text-sm font-bold text-slate-600">
+                  <span>Thuế TNCN (0.5%)</span>
+                  <span className="text-slate-900 uppercase">2,250,000 đ</span>
                 </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <span className="text-sm text-slate-600">Thuế TNCN - 0.5%</span>
-                  <span className="font-medium text-slate-900">2,250,000 đ</span>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                  <span className="font-bold text-slate-900">Tổng thuế phải nộp</span>
-                  <span className="text-xl font-bold text-rose-600">6,750,000 đ</span>
-                </div>
+              </div>
+              <div className="p-6 rounded-3xl bg-rose-50 border border-rose-100 flex justify-between items-center">
+                <span className="text-sm font-black text-rose-600 uppercase tracking-widest">Phải nộp ngân sách</span>
+                <span className="text-3xl font-black text-rose-600 tracking-tighter">6,750,000 đ</span>
               </div>
             </div>
+          </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden opacity-50 relative">
-              <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
-                <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-sm font-medium">Chưa kích hoạt</span>
+          <div className="ios-card overflow-hidden opacity-60 grayscale-[0.5] relative cursor-not-allowed group">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[1px]">
+               <div className="px-4 py-1 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest shadow-xl">Chờ kích hoạt</div>
+            </div>
+            <div className="p-6 bg-slate-50 border-b border-slate-100">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">Mô hình Doanh nghiệp</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Khấu trừ & TNDN 20%</p>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Lợi nhuận thực</span>
+                <span className="font-black text-slate-900">125,000,000 đ</span>
               </div>
-              <div className="p-4 border-b border-slate-200 bg-slate-50">
-                <h2 className="text-lg font-semibold text-slate-900">Doanh nghiệp (Company Mode)</h2>
-                <p className="text-sm text-slate-500">Áp dụng phương pháp khấu trừ</p>
+              <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Thuế suất TNDN</span>
+                <span className="font-black text-slate-900">20.0%</span>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <span className="text-sm text-slate-600">Lợi nhuận trước thuế</span>
-                  <span className="font-medium text-slate-900">125,000,000 đ</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                  <span className="text-sm text-slate-600">Thuế TNDN (20%)</span>
-                  <span className="font-medium text-slate-900">25,000,000 đ</span>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                  <span className="font-bold text-slate-900">Tổng thuế phải nộp</span>
-                  <span className="text-xl font-bold text-rose-600">25,000,000 đ</span>
-                </div>
+              <div className="p-6 rounded-3xl bg-slate-100 flex justify-between items-center">
+                <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Dự kiến thuế</span>
+                <span className="text-2xl font-black text-slate-500 tracking-tighter">25,000,000 đ</span>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* Filter Modal */}
-      <Modal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} title="Lọc thời gian báo cáo">
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setIsFilterModalOpen(false); }}>
+      <Modal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} title="Lọc dữ liệu báo cáo">
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setIsFilterModalOpen(false); }}>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Kỳ báo cáo</label>
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-              <option value="this-month">Tháng này</option>
-              <option value="last-month">Tháng trước</option>
-              <option value="this-quarter">Quý này</option>
-              <option value="this-year">Năm nay</option>
-              <option value="custom">Tùy chỉnh</option>
-            </select>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Kỳ kế toán</label>
+            <Select defaultValue="this-month">
+              <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                <SelectValue placeholder="Chọn kỳ kế toán" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="this-month">Tháng hiện tại</SelectItem>
+                <SelectItem value="last-month">Tháng trước</SelectItem>
+                <SelectItem value="this-quarter">Quý hiện tại</SelectItem>
+                <SelectItem value="this-year">Năm nay</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Từ ngày</label>
-              <input type="date" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Từ ngày</label>
+              <Input type="date" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Đến ngày</label>
-              <input type="date" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Đến ngày</label>
+              <Input type="date" />
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 mt-6">
-            <button type="button" onClick={() => setIsFilterModalOpen(false)} className="rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Hủy</button>
-            <button type="submit" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Áp dụng</button>
+          <div className="pt-6 border-t border-slate-50 flex justify-end gap-3">
+            <Button variant="ghost" type="button" onClick={() => setIsFilterModalOpen(false)} className="rounded-xl">Hủy</Button>
+            <Button type="submit" className="rounded-xl bg-primary px-8 font-bold">Cập nhật báo cáo</Button>
           </div>
         </form>
       </Modal>

@@ -37,22 +37,22 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-slate-900 text-slate-300 print:hidden">
-      <div className="flex h-16 items-center justify-between px-6 font-bold text-white text-lg tracking-tight border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-500 p-1.5 rounded-lg">
-            <Package className="w-5 h-5 text-white" />
+    <div className="flex h-full w-full flex-col bg-white print:hidden border-r border-border/10">
+      <div className="flex h-20 items-center justify-between px-6 font-bold text-slate-900 text-xl tracking-tight">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary p-2 rounded-2xl shadow-sm">
+            <Package className="w-6 h-6 text-white" />
           </div>
-          <span>Radiator ERP</span>
+          <span className="font-bold">Garage ERP</span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="lg:hidden text-slate-400 hover:text-white p-1 -mr-2">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="lg:hidden text-slate-400 hover:text-slate-600 p-1 -mr-2">
+            <X className="w-6 h-6" />
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav className="space-y-1 px-3">
+      <div className="flex-1 overflow-y-auto py-2">
+        <nav className="space-y-1.5 px-4">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
             return (
@@ -61,16 +61,16 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  'group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  'group flex items-center rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300',
                   isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-primary text-white shadow-md shadow-primary/20 translate-x-1'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-primary active:scale-95'
                 )}
               >
                 <item.icon
                   className={cn(
-                    'mr-3 h-5 w-5 flex-shrink-0',
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                    'mr-3 h-5 w-5 transition-transform group-hover:scale-110',
+                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary'
                   )}
                   aria-hidden="true"
                 />
@@ -80,14 +80,14 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           })}
         </nav>
       </div>
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-medium text-white">
+      <div className="p-6 mt-auto">
+        <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-3xl border border-slate-100">
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shadow-inner">
             AD
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">Admin</span>
-            <span className="text-xs text-slate-400">Quản lý cửa hàng</span>
+            <span className="text-sm font-bold text-slate-900 leading-none mb-1">Anh Nguyễn</span>
+            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Chủ cửa hàng</span>
           </div>
         </div>
       </div>

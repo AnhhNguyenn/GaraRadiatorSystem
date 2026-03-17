@@ -35,5 +35,11 @@ namespace GarageRadiatorERP.Api.Hubs
             // Echo back to client to confirm
             await Clients.Caller.SendAsync("MessageSentStatus", new { platform, customerId, success = true });
         }
+
+        // Broadcast a system-wide notification to all connected clients (e.g., POS screens)
+        public async Task BroadcastNotification(string message, string type = "info")
+        {
+            await Clients.All.SendAsync("ReceiveNotification", new { message, type, time = DateTime.UtcNow });
+        }
     }
 }

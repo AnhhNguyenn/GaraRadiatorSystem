@@ -29,4 +29,26 @@ namespace GarageRadiatorERP.Api.DTOs.Inventory
         public int Quantity { get; set; }
         public decimal CostPrice { get; set; }
     }
+
+    public class CreatePurchaseOrderDto
+    {
+        public Guid SupplierId { get; set; }
+        public List<CreatePurchaseItemDto> Items { get; set; } = new List<CreatePurchaseItemDto>();
+    }
+
+    public class CreatePurchaseItemDto
+    {
+        public Guid ProductId { get; set; }
+        public int Quantity { get; set; }
+        public decimal CostPrice { get; set; }
+    }
+
+    public class PurchaseOrderDto
+    {
+        public Guid Id { get; set; }
+        public Guid SupplierId { get; set; }
+        public DateTime PurchaseDate { get; set; }
+        public decimal TotalCost { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
 }

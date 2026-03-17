@@ -9,13 +9,13 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
     [Route("api/webhooks")]
     public class WebhookController : ControllerBase
     {
-        private readonly IPlatformService _platformService;
+        private readonly IWebhookQueueService _queueService;
         private readonly IConfiguration _config;
         private readonly ILogger<WebhookController> _logger;
 
-        public WebhookController(IPlatformService platformService, IConfiguration config, ILogger<WebhookController> logger)
+        public WebhookController(IWebhookQueueService queueService, IConfiguration config, ILogger<WebhookController> logger)
         {
-            _platformService = platformService;
+            _queueService = queueService;
             _config = config;
             _logger = logger;
         }
@@ -44,7 +44,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             }
 
             _logger.LogInformation("✅ Nhận Webhook Đơn hàng Shopee thành công! Payload: {reqBody}", reqBody);
-            // TODO: Gọi PlatformService.ProcessOrder(reqBody);
+            await _queueService.QueueWebhookAsync("Shopee", reqBody);
 
             return Ok(new { message = "success" });
         }
@@ -70,7 +70,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             }
 
             _logger.LogInformation("✅ Nhận Webhook Đơn hàng TikTok thành công! Payload: {reqBody}", reqBody);
-            // TODO: Thiết lập Message Queue chống spam Rate Limit Sàn
+            await _queueService.QueueWebhookAsync("TikTok", reqBody);
 
             return Ok(new { message = "success" });
         }
