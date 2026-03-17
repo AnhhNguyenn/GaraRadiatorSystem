@@ -51,4 +51,4 @@ Mở `appsettings.json` trong `backend/GarageRadiatorERP.Api`:
 - [🛡 Báo cáo an ninh & Kiểm định](C:\Users\anhnt\.gemini\antigravity\brain\d357a814-1e62-4cc2-b0c4-248314df814e\project_analysis_report.md)
 
 ---
-*Dự án được xây dựng bởi Antigravity AI Engineer.*
+*Dự án được xây dựng bởi AnhNT.*
