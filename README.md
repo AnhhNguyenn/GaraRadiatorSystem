@@ -29,9 +29,6 @@ Chào mừng bạn đến với hệ thống ERP hoàn chỉnh cho Garage/Xưở
 - **Thiết kế:** Apple Human Interface Guidelines (Elevated Style).
 
 ## 🛠 Hướng dẫn triển khai (Go-live)
-
-Hệ thống đã sẵn sàng 99% về mặt kỹ thuật. Để bắt đầu kinh doanh, hãy thực hiện:
-
 ### 1. Cấu hình Backend
 Mở `appsettings.json` trong `backend/GarageRadiatorERP.Api`:
 - Cập nhật Connection String tới SQL Server của bạn.
@@ -45,10 +42,10 @@ Mở `appsettings.json` trong `backend/GarageRadiatorERP.Api`:
 ## 📖 Tài liệu chi tiết (Brain Artifacts)
 
 Để hiểu sâu hơn về quá trình phát triển và các thông số kỹ thuật, vui lòng tham khảo:
-- [✅ Lộ trình triển khai & Trạng thái kỹ thuật](C:\Users\anhnt\.gemini\antigravity\brain\d357a814-1e62-4cc2-b0c4-248314df814e\implementation_plan.md)
-- [📈 Nhật ký hoàn thiện nhiệm vụ](C:\Users\anhnt\.gemini\antigravity\brain\d357a814-1e62-4cc2-b0c4-248314df814e\task.md)
-- [🎥 Video trải nghiệm thực tế (Walkthrough)](C:\Users\anhnt\.gemini\antigravity\brain\d357a814-1e62-4cc2-b0c4-248314df814e\walkthrough.md)
-- [🛡 Báo cáo an ninh & Kiểm định](C:\Users\anhnt\.gemini\antigravity\brain\d357a814-1e62-4cc2-b0c4-248314df814e\project_analysis_report.md)
+- [✅ Lộ trình triển khai & Trạng thái kỹ thuật](implementation_plan.md)
+- [📈 Nhật ký hoàn thiện nhiệm vụ](task.md)
+- [🎥 Video trải nghiệm thực tế (Walkthrough)](walkthrough.md)
+- [🛡 Báo cáo an ninh & Kiểm định](project_analysis_report.md)
 
 ---
-*Dự án được xây dựng bởi Antigravity AI Engineer.*
+*Dự án được xây dựng bởi AnhNT.*
