@@ -64,7 +64,7 @@ builder.Services.AddCors(options =>
         // STRICT CORS for VPS Deployment
         // Replace these with actual production domains in the future
         policy.WithOrigins(
-                "http://localhost:3000", 
+                "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "https://your-production-frontend-domain.com"
             )
@@ -138,10 +138,10 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("fixed", httpContext =>
     {
-        // Fix Rate Limit chặn IP Proxy (Lỗi 1, 32)
-        var remoteIp = httpContext.Connection.RemoteIpAddress;
-        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        var clientIp = !string.IsNullOrEmpty(forwardedFor) ? forwardedFor.Split(',').FirstOrDefault() : remoteIp?.ToString();
+        // Lỗi 59: Bypass Rate Limiting dễ như trở bàn tay
+        // Không tự đọc X-Forwarded-For bằng tay để tránh Fake Header Hacker attack.
+        // UseForwardedHeaders() sẽ tự map IP thật từ Trusted Proxy sang RemoteIpAddress một cách an toàn.
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
 
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: clientIp ?? "unknown",

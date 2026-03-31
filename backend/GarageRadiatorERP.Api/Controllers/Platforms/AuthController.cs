@@ -87,10 +87,12 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("tiktok/callback")]
         public async Task<IActionResult> TikTokCallback([FromQuery] string auth_code, [FromQuery] string state)
         {
-            // Bỏ qua kiểm tra Cookie vì chưa có Endpoint bắt đầu Flow OAuth để Set Cookie này (Sẽ chặn sạch mọi Callback thật)
-            if (string.IsNullOrEmpty(state))
+            // Kiểm tra CSRF triệt để (Lỗi 4)
+            var expectedState = Request.Cookies["oauth_state"];
+            if (string.IsNullOrEmpty(state) || state != expectedState)
             {
-                _logger.LogWarning("Missing state parameter (Possible CSRF attempt detected). Proceeding for testing purposes only.");
+                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback.");
+                return BadRequest("Invalid state parameter. CSRF validation failed.");
             }
 
             _logger.LogInformation($"Received TikTok Auth Callback: auth_code={auth_code}, state={state}");

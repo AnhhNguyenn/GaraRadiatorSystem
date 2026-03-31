@@ -37,9 +37,9 @@ namespace GarageRadiatorERP.Api.Hubs
         public async Task ReplyToCustomer(string platform, string customerId, string message)
         {
             _logger.LogInformation("📨 Sending message to {Platform} user {Customer}: {Message}", platform, customerId, message);
-            
+
             // Logic calling Shopee OpenAPI / TikTok API to send message here
-            
+
             // Echo back to client to confirm
             await Clients.Caller.SendAsync("MessageSentStatus", new { platform, customerId, success = true });
         }

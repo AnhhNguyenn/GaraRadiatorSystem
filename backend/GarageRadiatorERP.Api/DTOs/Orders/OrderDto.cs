@@ -17,11 +17,11 @@ namespace GarageRadiatorERP.Api.DTOs.Orders
     {
         public Guid? CustomerId { get; set; }
 
-        [System.ComponentModel.DataAnnotations.MaxLength(2000)]
+        [global::System.ComponentModel.DataAnnotations.MaxLength(2000)]
         public string? Notes { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(1)]
+        [global::System.ComponentModel.DataAnnotations.Required]
+        [global::System.ComponentModel.DataAnnotations.MinLength(1)]
         public List<CreateOrderItemDto> Items { get; set; } = new List<CreateOrderItemDto>();
     }
 
@@ -29,10 +29,10 @@ namespace GarageRadiatorERP.Api.DTOs.Orders
     {
         public Guid ProductId { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Range(1, 100000, ErrorMessage = "Quantity must be greater than 0")]
+        [global::System.ComponentModel.DataAnnotations.Range(1, 100000, ErrorMessage = "Quantity must be greater than 0")]
         public int Quantity { get; set; }
 
-        [System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)]
+        [global::System.ComponentModel.DataAnnotations.Range(0, double.MaxValue)]
         public decimal UnitPrice { get; set; }
     }
 }

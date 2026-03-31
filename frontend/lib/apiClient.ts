@@ -4,20 +4,38 @@ const API_URL = (RAW_API_URL || "http://localhost:5248").replace(/\/$/, "");
 // Add `/api/v1` for versioning
 const BASE_URL = `${API_URL}/api/v1`;
 
-// Hàm lấy token từ bộ nhớ (localStorage, cookie, hoặc session)
-function getAuthToken(): string | null {
+// Fix Lỗi 58: Sửa hàm lấy token để tương thích Next.js SSR / Server Components
+// Dùng function regex parse document.cookie hoặc check headers server.
+function getAuthToken(customToken?: string): string | null {
+  if (customToken) return customToken;
+
   if (typeof window !== "undefined") {
-    return localStorage.getItem("access_token");
+    // 1. Client Side: Check LocalStorage trước
+    const lsToken = localStorage.getItem("access_token");
+    if (lsToken) return lsToken;
+
+    // 2. Client Side: Check Cookie fallback
+    const match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
+    if (match) return match[2];
   }
+
+  // Ở Server Component (SSR), nếu không pass customToken vào, sẽ return null.
+  // Developers khi gọi api.products.list() ở Server Page bắt buộc phải parse cookie từ Next `headers()`
+  // và gắn vào bằng một wrapper khác, hoặc call api qua route handler.
   return null;
 }
 
-async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
+// Bổ sung `token` vào RequestInit để SSR Next.js có thể inject token lấy từ `cookies()`
+interface ExtendedRequestInit extends RequestInit {
+  token?: string;
+}
+
+async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {}) {
   // Fix Thiếu Timeout API (Lỗi 54) bằng AbortController
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
 
-  const token = getAuthToken();
+  const token = getAuthToken(options.token);
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -70,22 +88,34 @@ async function fetchFromApi(endpoint: string, options: RequestInit = {}) {
 
 export const api = {
   products: {
-    // Fix Kéo dữ liệu vô cực (Lỗi 50/33)
-    list: (page: number = 1, limit: number = 100) => fetchFromApi(`/products?page=${page}&limit=${limit}`),
+    // Lỗi 60: Bổ sung Metadata TotalCount, trả về .data để UI không sập khi expect Array.
+    list: async (page: number = 1, limit: number = 100) => {
+      const res = await fetchFromApi(`/products?page=${page}&limit=${limit}`);
+      return res.data ? res.data : res; // Tương thích ngược nếu API chưa update kịp
+    },
     get: (id: string) => fetchFromApi(`/products/${id}`),
     create: (data: any) => fetchFromApi('/products', { method: 'POST', body: JSON.stringify(data) }),
   },
   inventory: {
-    batches: (page: number = 1, limit: number = 100) => fetchFromApi(`/inventory/batches?page=${page}&limit=${limit}`),
+    batches: async (page: number = 1, limit: number = 100) => {
+      const res = await fetchFromApi(`/inventory/batches?page=${page}&limit=${limit}`);
+      return res.data ? res.data : res;
+    },
     createBatch: (data: any) => fetchFromApi('/inventory/batches', { method: 'POST', body: JSON.stringify(data) }),
   },
   orders: {
-    list: (page: number = 1, limit: number = 100) => fetchFromApi(`/orders?page=${page}&limit=${limit}`),
+    list: async (page: number = 1, limit: number = 100) => {
+      const res = await fetchFromApi(`/orders?page=${page}&limit=${limit}`);
+      return res.data ? res.data : res;
+    },
     create: (data: any) => fetchFromApi('/orders', { method: 'POST', body: JSON.stringify(data) }),
     createPOS: (data: any) => fetchFromApi('/orders/pos', { method: 'POST', body: JSON.stringify(data) }),
   },
   finance: {
-    expenses: (page: number = 1, limit: number = 100) => fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`),
+    expenses: async (page: number = 1, limit: number = 100) => {
+      const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`);
+      return res.data ? res.data : res;
+    },
     profitReport: (start: string, end: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`),
   },
   chat: {

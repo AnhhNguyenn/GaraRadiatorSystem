@@ -23,13 +23,13 @@ namespace GarageRadiatorERP.Api.Models.Orders
         [Required]
         [StringLength(50)]
         public string Type { get; set; } = "Retail"; // Retail (Lẻ), Garage (Thợ), Wholesale (Đại lý)
-        
+
         [StringLength(50)]
         public string? PricingTier { get; set; } // Bậc giá: VIP1, VIP2, Normal
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal CreditLimit { get; set; } // Hạn mức công nợ cho phép Gara nợ
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CurrentBalance { get; set; } // Dư nợ hiẹn tại
 
@@ -59,10 +59,10 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalCost { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal Discount { get; set; } // Chiết khấu tổng đơn cho khách sỉ
 
@@ -96,11 +96,11 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public int Quantity { get; set; }
 
         // Bán thiếu hàng/giao sau (Ví dụ mua 10 có 6, đang nợ 4 cái)
-        public int BackorderQuantity { get; set; } 
+        public int BackorderQuantity { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CostPrice { get; set; } // Kế thừa từ CostPrice của Batch xuất ra
     }
@@ -134,7 +134,7 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public string? ShippingCode { get; set; }
 
         public string? LabelUrl { get; set; } // Đường dẫn tem in 100x150
-        
+
         public DateTime? WebhookReceivedAt { get; set; }
     }
 }

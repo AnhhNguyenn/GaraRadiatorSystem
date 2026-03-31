@@ -117,20 +117,21 @@ namespace GarageRadiatorERP.Api.Data
             // Database Indexing chuẩn xác để tăng Query speed
             builder.Entity<Product>().HasIndex(p => p.SKU).IsUnique();
             builder.Entity<Product>().HasIndex(p => p.Barcode);
-            
+
             builder.Entity<BinLocation>().HasIndex(b => b.Barcode).IsUnique();
 
             builder.Entity<InventoryBatch>().HasIndex(b => b.ImportDate);
             builder.Entity<InventoryBatch>().HasIndex(b => b.ProductId);
-            
+
             builder.Entity<Order>().HasIndex(o => o.OrderDate);
             builder.Entity<Order>().HasIndex(o => o.Status);
-            
+
             builder.Entity<OnlineOrderDetails>().HasIndex(o => o.PlatformOrderId).IsUnique();
 
             // Fix Lỗi 52: Soft Delete Query Filter
             builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
+            builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
         }
 
         public override int SaveChanges()

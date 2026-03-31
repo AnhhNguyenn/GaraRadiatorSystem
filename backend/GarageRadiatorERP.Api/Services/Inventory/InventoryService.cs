@@ -137,7 +137,7 @@ namespace GarageRadiatorERP.Api.Services.Inventory
             po.TotalCost = totalCost;
             _context.PurchaseOrders.Add(po);
             await _context.SaveChangesAsync();
-            
+
             // update transaction ref
             var transactions = _context.ChangeTracker.Entries<InventoryTransaction>()
                 .Where(e => e.Entity.ReferenceDocument == "PO")

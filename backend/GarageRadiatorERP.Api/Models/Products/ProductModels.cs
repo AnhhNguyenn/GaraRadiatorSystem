@@ -35,7 +35,7 @@ namespace GarageRadiatorERP.Api.Models.Products
 
         [StringLength(20)]
         public string UnitOfMeasure { get; set; } = "Piece"; // Cái, Sợi, Lít
-        
+
         public bool IsBulky { get; set; } = false; // Cảnh báo hàng cồng kềnh
 
         public int MinStockLevel { get; set; } = 3; // Ngưỡng tồn kho tối thiểu

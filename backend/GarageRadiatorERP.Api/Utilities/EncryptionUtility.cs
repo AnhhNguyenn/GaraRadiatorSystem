@@ -60,7 +60,7 @@ namespace GarageRadiatorERP.Api.Utilities
 
                 using Aes aes = Aes.Create();
                 aes.Key = _key;
-                
+
                 // Extract IV from the first 16 bytes
                 var iv = new byte[16];
                 Array.Copy(fullCipher, 0, iv, 0, iv.Length);

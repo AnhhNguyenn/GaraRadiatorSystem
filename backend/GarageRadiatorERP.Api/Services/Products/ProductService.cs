@@ -11,7 +11,7 @@ namespace GarageRadiatorERP.Api.Services.Products
 {
     public interface IProductService
     {
-        Task<IEnumerable<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
         Task<ProductDto?> GetProductByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default);
         Task<ProductDto> CreateProductAsync(CreateProductDto createDto, System.Threading.CancellationToken cancellationToken = default);
     }
@@ -25,10 +25,13 @@ namespace GarageRadiatorERP.Api.Services.Products
             _context = context;
         }
 
-        public async Task<IEnumerable<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
-            return await _context.Products
-                .Include(p => p.Category)
+            var query = _context.Products.Include(p => p.Category);
+
+            int totalCount = await query.CountAsync(cancellationToken);
+
+            var data = await query
                 .OrderByDescending(p => p.CreatedAt) // Pagination needs OrderBy
                 .Skip((page - 1) * limit)
                 .Take(limit)
@@ -46,6 +49,8 @@ namespace GarageRadiatorERP.Api.Services.Products
                     CreatedAt = p.CreatedAt
                 })
                 .ToListAsync(cancellationToken);
+
+            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>(data, totalCount, page, limit);
         }
 
         public async Task<ProductDto?> GetProductByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default)
