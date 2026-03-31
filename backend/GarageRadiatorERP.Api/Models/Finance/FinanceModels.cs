@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GarageRadiatorERP.Api.Models.Finance
 {
-    public class Expense
+    public class Expense : GarageRadiatorERP.Api.Models.System.ISoftDeletable
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -17,6 +17,8 @@ namespace GarageRadiatorERP.Api.Models.Finance
 
         [StringLength(500)]
         public string? Note { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 
     public class ProfitReport

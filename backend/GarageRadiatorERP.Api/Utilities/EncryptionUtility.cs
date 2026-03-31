@@ -5,31 +5,36 @@ using System.Text;
 
 namespace GarageRadiatorERP.Api.Utilities
 {
-    public static class EncryptionUtility
+    public interface IEncryptionUtility
     {
-        // In a real production system, this key should be loaded from Azure KeyVault, 
-        // AWS KMS, or a highly secure Environment Variable.
-        // For demonstration, an environment variable fallback is provided.
-        private static readonly byte[] Key = GetEncryptionKey();
+        string Encrypt(string plainText);
+        string Decrypt(string cipherText);
+    }
 
-        private static byte[] GetEncryptionKey()
+    public class EncryptionUtility : IEncryptionUtility
+    {
+        private readonly byte[] _key;
+
+        public EncryptionUtility(Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
+            // Lỗi 30: Không hardcode key
+            var configKey = configuration["Encryption:SecretKey"];
             var envKey = Environment.GetEnvironmentVariable("ERP_ENCRYPTION_KEY");
-            if (!string.IsNullOrEmpty(envKey) && envKey.Length == 32)
+            var keyToUse = !string.IsNullOrEmpty(envKey) ? envKey : configKey;
+
+            if (string.IsNullOrEmpty(keyToUse) || keyToUse.Length != 32)
             {
-                return Encoding.UTF8.GetBytes(envKey);
+                throw new InvalidOperationException("Mising or invalid Encryption Key (must be 32 chars).");
             }
-            
-            // Fallback development key (32 bytes for AES-256)
-            return Encoding.UTF8.GetBytes("GarageRadiatorSecretKey123456789");
+            _key = Encoding.UTF8.GetBytes(keyToUse);
         }
 
-        public static string Encrypt(string plainText)
+        public string Encrypt(string plainText)
         {
             if (string.IsNullOrEmpty(plainText)) return plainText;
 
             using Aes aes = Aes.Create();
-            aes.Key = Key;
+            aes.Key = _key;
             aes.GenerateIV(); // 16 byte IV
 
             using MemoryStream ms = new MemoryStream();
@@ -45,7 +50,7 @@ namespace GarageRadiatorERP.Api.Utilities
             return Convert.ToBase64String(ms.ToArray());
         }
 
-        public static string Decrypt(string cipherText)
+        public string Decrypt(string cipherText)
         {
             if (string.IsNullOrEmpty(cipherText)) return cipherText;
 
@@ -54,7 +59,7 @@ namespace GarageRadiatorERP.Api.Utilities
                 byte[] fullCipher = Convert.FromBase64String(cipherText);
 
                 using Aes aes = Aes.Create();
-                aes.Key = Key;
+                aes.Key = _key;
                 
                 // Extract IV from the first 16 bytes
                 var iv = new byte[16];

@@ -4,7 +4,7 @@ using GarageRadiatorERP.Api.Services.Finance;
 namespace GarageRadiatorERP.Api.Controllers.Finance
 {
     [ApiController]
-    [Route("api/finance")]
+    [Route("api/v1/finance")] // Fix Versioning API (Lỗi 8 / 53)
     public class FinanceController : ControllerBase
     {
         private readonly IFinanceService _financeService;
@@ -15,12 +15,13 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         }
 
         [HttpGet("profit-report")]
-        public async Task<IActionResult> GetProfitReport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+        public async Task<IActionResult> GetProfitReport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken cancellationToken)
         {
-            var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-            var end = endDate ?? DateTime.UtcNow;
+            var localNow = GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime();
+            var start = startDate ?? new DateTime(localNow.Year, localNow.Month, 1);
+            var end = endDate ?? localNow;
 
-            var result = await _financeService.GetProfitReportAsync(start, end);
+            var result = await _financeService.GetProfitReportAsync(start, end, cancellationToken);
 
             // Gắn thêm Period format cho Front-end dễ hiển thị
             var response = new {
@@ -35,10 +36,23 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
             return Ok(response);
         }
 
-        [HttpPost("expenses")]
-        public async Task<IActionResult> AddExpense([FromBody] object expenseDto)
+        [HttpGet("expenses")]
+        public async Task<IActionResult> GetExpenses([FromQuery] int page = 1, [FromQuery] int limit = 100, CancellationToken cancellationToken = default)
         {
-            return Ok(new { message = "Logged operating expense successfully" });
+            var result = await _financeService.GetAllExpensesAsync(page, limit, cancellationToken);
+            return Ok(result);
+        }
+
+        [HttpPost("expenses")]
+        public async Task<IActionResult> AddExpense([FromBody] GarageRadiatorERP.Api.DTOs.Finance.CreateExpenseDto expenseDto, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState); // Fix Lỗi DTO Validation (Lỗi 38)
+            }
+
+            var result = await _financeService.CreateExpenseAsync(expenseDto, cancellationToken);
+            return Ok(result);
         }
     }
 }

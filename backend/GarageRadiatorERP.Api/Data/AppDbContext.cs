@@ -93,15 +93,26 @@ namespace GarageRadiatorERP.Api.Data
                 .WithOne(o => o.OnlineDetails)
                 .HasForeignKey<OnlineOrderDetails>(d => d.OrderId);
 
-            // Precision for decimals
+            // Fix sai số giá vốn (Lỗi 23) và phân chia Precision
             var decimalProps = builder.Model.GetEntityTypes()
                 .SelectMany(t => t.GetProperties())
                 .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?));
 
             foreach (var property in decimalProps)
             {
-                property.SetColumnType("decimal(18,2)");
+                if (property.Name.Contains("Cost") || property.Name.Contains("Price"))
+                {
+                    property.SetColumnType("decimal(18,4)");
+                }
+                else
+                {
+                    property.SetColumnType("decimal(18,2)");
+                }
             }
+
+            // Fix SQL Server sập vì Index nvarchar(max) (Lỗi 22)
+            builder.Entity<Product>().Property(p => p.SKU).HasMaxLength(100);
+            builder.Entity<Product>().Property(p => p.Barcode).HasMaxLength(100);
 
             // Database Indexing chuẩn xác để tăng Query speed
             builder.Entity<Product>().HasIndex(p => p.SKU).IsUnique();
@@ -116,6 +127,34 @@ namespace GarageRadiatorERP.Api.Data
             builder.Entity<Order>().HasIndex(o => o.Status);
             
             builder.Entity<OnlineOrderDetails>().HasIndex(o => o.PlatformOrderId).IsUnique();
+
+            // Fix Lỗi 52: Soft Delete Query Filter
+            builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
+            builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
+        }
+
+        public override int SaveChanges()
+        {
+            ApplySoftDelete();
+            return base.SaveChanges();
+        }
+
+        public override System.Threading.Tasks.Task<int> SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default)
+        {
+            ApplySoftDelete();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplySoftDelete()
+        {
+            foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ISoftDeletable>())
+            {
+                if (entry.State == EntityState.Deleted)
+                {
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                }
+            }
         }
     }
 }

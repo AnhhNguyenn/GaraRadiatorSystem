@@ -36,7 +36,7 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 
-    public class Order
+    public class Order : GarageRadiatorERP.Api.Models.System.ISoftDeletable
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -46,14 +46,14 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         [Required]
         [StringLength(50)]
-        public string Source { get; set; } = "POS"; // POS, Shopee, TikTok, Zalo
+        public string Source { get; set; } = OrderSource.POS.ToString();
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Pending"; // Pending, Reserved (Giữ kho), Completed, Cancelled, Returned
+        public string Status { get; set; } = OrderStatus.Pending.ToString();
 
         [StringLength(50)]
-        public string PaymentStatus { get; set; } = "Unpaid"; // Unpaid, Partial, Paid, Debt (Ghi nợ)
+        public string PaymentStatus { get; set; } = GarageRadiatorERP.Api.Models.Orders.PaymentStatus.Unpaid.ToString();
 
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
@@ -74,6 +74,8 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
         public OnlineOrderDetails? OnlineDetails { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 
     public class OrderItem

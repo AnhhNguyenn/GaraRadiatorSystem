@@ -11,9 +11,9 @@ namespace GarageRadiatorERP.Api.Services.Finance
 {
     public interface IFinanceService
     {
-        Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync();
-        Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto);
-        Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate);
+        Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default);
+        Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class FinanceService : IFinanceService
@@ -25,9 +25,13 @@ namespace GarageRadiatorERP.Api.Services.Finance
             _context = context;
         }
 
-        public async Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync()
+        public async Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
+            // Thêm phân trang (Lỗi 50) và CancellationToken (Lỗi 24)
             return await _context.Expenses
+                .OrderByDescending(e => e.Date)
+                .Skip((page - 1) * limit)
+                .Take(limit)
                 .Select(e => new ExpenseDto
                 {
                     Id = e.Id,
@@ -36,21 +40,22 @@ namespace GarageRadiatorERP.Api.Services.Finance
                     Date = e.Date,
                     Note = e.Note
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto)
+        public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default)
         {
             var expense = new Expense
             {
                 Category = createDto.Category,
                 Amount = createDto.Amount,
                 Note = createDto.Note,
-                Date = DateTime.UtcNow
+                // Fix thời gian ghi nhận và timezone (Lỗi 17 / 39)
+                Date = createDto.ExpenseDate ?? GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime()
             };
 
             _context.Expenses.Add(expense);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return new ExpenseDto
             {
@@ -62,19 +67,20 @@ namespace GarageRadiatorERP.Api.Services.Finance
             };
         }
 
-        public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate)
+        public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default)
         {
-            var orders = await _context.Orders
+            // Fix Kéo sập Server (Memory Bomb) (Lỗi 19 / 36) - Tính tổng trực tiếp bằng DB
+            decimal totalRevenue = await _context.Orders
                 .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
-                .ToListAsync();
+                .SumAsync(o => o.TotalAmount, cancellationToken);
 
-            var expenses = await _context.Expenses
+            decimal totalCost = await _context.Orders
+                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
+                .SumAsync(o => o.TotalCost, cancellationToken);
+
+            decimal totalExpense = await _context.Expenses
                 .Where(e => e.Date >= startDate && e.Date <= endDate)
-                .ToListAsync();
-
-            decimal totalRevenue = orders.Sum(o => o.TotalAmount);
-            decimal totalCost = orders.Sum(o => o.TotalCost);
-            decimal totalExpense = expenses.Sum(e => e.Amount);
+                .SumAsync(e => e.Amount, cancellationToken);
 
             return new ProfitReportDto
             {

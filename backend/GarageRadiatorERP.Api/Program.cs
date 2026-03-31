@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using GarageRadiatorERP.Api.Data;
+using Microsoft.OpenApi.Models;
 using GarageRadiatorERP.Api.Models.System;
 using GarageRadiatorERP.Api.Services.Products;
 using GarageRadiatorERP.Api.Services.Inventory;
@@ -17,8 +18,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
+    .WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter()) // Ghi log ra JSON cho Docker thay vì file text
     .WriteTo.Async(a => a.File("logs/erp-log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30)));
+
+// Configure Forwarded Headers for reverse proxy
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+    // Tùy chọn: Xóa KnownNetworks/KnownProxies nếu chạy trong Docker/K8s mà không biết trước IP của Proxy
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Configure Kestrel to remove Server header (Security - Lỗi 12)
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
+// Thêm Exception Handler Global (Security - Lỗi 37)
+builder.Services.AddProblemDetails();
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -34,6 +50,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IPlatformService, PlatformService>();
 builder.Services.AddSingleton<IWebhookQueueService, WebhookQueueService>();
+builder.Services.AddSingleton<GarageRadiatorERP.Api.Utilities.IEncryptionUtility, GarageRadiatorERP.Api.Utilities.EncryptionUtility>();
 
 builder.Services.AddHostedService<GarageRadiatorERP.Api.Jobs.TokenRenewalJob>();
 builder.Services.AddHostedService<GarageRadiatorERP.Api.Jobs.WebhookProcessorJob>();
@@ -58,36 +75,101 @@ builder.Services.AddCors(options =>
 });
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-builder.Services.AddSignalR();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// Thêm SignalR và cấu hình Redis Backplane cho môi trường Production Scale (Lỗi 41/35)
+var signalRBuilder = builder.Services.AddSignalR();
+var redisConnectionString = builder.Configuration.GetConnectionString("RedisBackplane");
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    // Cần dotnet add package Microsoft.AspNetCore.SignalR.StackExchangeRedis
+    // signalRBuilder.AddStackExchangeRedis(redisConnectionString);
+    // Commented out to avoid compile error without package, but the structure is here for DevOps.
+}
+
+// Thêm Authentication/Authorization cơ bản để không bị crash khi gặp [Authorize] (Lỗi 28)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"] ?? "default_super_secret_key_1234567890_min_32_bytes_long!"))
+    };
+});
+builder.Services.AddAuthorization();
 
 // Cấu hình Rate Limiting chống DDoS/Spam (100 request / 1 phút / 1 IP)
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("fixed", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    {
+        // Fix Rate Limit chặn IP Proxy (Lỗi 1, 32)
+        var remoteIp = httpContext.Connection.RemoteIpAddress;
+        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var clientIp = !string.IsNullOrEmpty(forwardedFor) ? forwardedFor.Split(',').FirstOrDefault() : remoteIp?.ToString();
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: clientIp ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 100,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 2
-            }));
+            });
+    });
 });
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(); // Phải nằm trước các middleware khác để lấy đúng IP
+
+app.UseExceptionHandler(); // Kích hoạt ProblemDetails Global Exception Handler (Lỗi 37)
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 else
 {
-    // The default HSTS value is 30 days. You may want to change this for production scenarios.
-    app.UseHsts();
+    // Bỏ app.UseHsts() vì đã có trong SecurityHeadersMiddleware (Lỗi 33)
 }
 
 app.UseRateLimiter(); // Apply Rate Limiting Middleware
@@ -101,13 +183,10 @@ app.UseCors("AllowNextJs");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHub<GarageRadiatorERP.Api.Hubs.ChatHub>("/chathub").RequireRateLimiting("fixed");
+// Bỏ RequireRateLimiting khỏi WebSocket vì nó chỉ chặn handshake và vô dụng sau khi kết nối,
+// còn làm ảnh hưởng request HTTP REST (Lỗi 39, 40)
+app.MapHub<GarageRadiatorERP.Api.Hubs.ChatHub>("/chathub");
 
 app.MapControllers().RequireRateLimiting("fixed"); // Áp dụng Rate Limit cho tất cả API Controllers
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
