@@ -38,6 +38,11 @@ namespace GarageRadiatorERP.Api.Models.Products
         
         public bool IsBulky { get; set; } = false; // Cảnh báo hàng cồng kềnh
 
+        public int MinStockLevel { get; set; } = 3; // Ngưỡng tồn kho tối thiểu
+
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal Price { get; set; } // Giá vốn trung bình / Giá tham khảo
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties

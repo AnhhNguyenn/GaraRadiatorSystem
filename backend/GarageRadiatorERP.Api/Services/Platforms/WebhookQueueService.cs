@@ -21,7 +21,8 @@ namespace GarageRadiatorERP.Api.Services.Platforms
         {
             var options = new BoundedChannelOptions(10000)
             {
-                FullMode = BoundedChannelFullMode.DropOldest
+                // Fix DropOldest (Lỗi 3)
+                FullMode = BoundedChannelFullMode.Wait
             };
             _queue = Channel.CreateBounded<WebhookMessage>(options);
         }

@@ -25,28 +25,41 @@ namespace GarageRadiatorERP.Api.Jobs
         {
             _logger.LogInformation("🚀 Kích hoạt Job Nền: Webhook Processor đang chờ tin nhắn...");
 
+            // Sửa Webhook Queue rủi ro Thread Pool Exhaustion bằng SemaphoreSlim (Max 50 concurrent)
+            var semaphore = new SemaphoreSlim(50);
+
             await foreach (var message in _queue.DequeueAsync(stoppingToken))
             {
-                try
-                {
-                    using (var scope = _scopeFactory.CreateScope())
-                    {
-                        var platformService = scope.ServiceProvider.GetRequiredService<IPlatformService>();
+                await semaphore.WaitAsync(stoppingToken);
 
-                        if (message.Platform == "Shopee")
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using (var scope = _scopeFactory.CreateScope())
                         {
-                            await platformService.ProcessShopeeWebhookAsync(message.Payload);
-                        }
-                        else if (message.Platform == "TikTok")
-                        {
-                            await platformService.ProcessTikTokWebhookAsync(message.Payload);
+                            var platformService = scope.ServiceProvider.GetRequiredService<IPlatformService>();
+
+                            if (message.Platform == "Shopee")
+                            {
+                                await platformService.ProcessShopeeWebhookAsync(message.Payload);
+                            }
+                            else if (message.Platform == "TikTok")
+                            {
+                                await platformService.ProcessTikTokWebhookAsync(message.Payload);
+                            }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Lỗi khi xử lý hàng đợi Webhook từ {Platform}", message.Platform);
-                }
+                    catch (Exception ex)
+                    {
+                        // TODO: Implement Dead-Letter Queue (DLQ) here in production (Lỗi 46)
+                        _logger.LogError(ex, "Lỗi khi xử lý hàng đợi Webhook từ {Platform}. Payload: {Payload}", message.Platform, message.Payload);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }, stoppingToken);
             }
         }
     }

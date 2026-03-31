@@ -98,6 +98,9 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public Guid? BatchId { get; set; }
         public InventoryBatch? Batch { get; set; }
 
+        public Guid? OrderId { get; set; }
+        public Orders.Order? Order { get; set; }
+
         [Required]
         [StringLength(50)]
         public string Type { get; set; } = string.Empty; // import, sale, adjustment, return, damage
