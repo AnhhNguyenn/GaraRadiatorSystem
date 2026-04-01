@@ -141,6 +141,8 @@ namespace GarageRadiatorERP.Api.Data
             builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
 
+
+
             // Cấu hình Global Query Filter cho Multi-Tenant (Bảo vệ dữ liệu chéo Gara)
             foreach (var entityType in builder.Model.GetEntityTypes())
             {
@@ -164,6 +166,7 @@ namespace GarageRadiatorERP.Api.Data
                 }
             }
 
+
             // Bối cảnh 1: Kích hoạt Concurrency Check thực sự cho kho
             builder.Entity<InventoryBatch>().Property(b => b.RowVersion).IsRowVersion();
         }
@@ -171,7 +174,10 @@ namespace GarageRadiatorERP.Api.Data
         public override int SaveChanges()
         {
             ApplySoftDelete();
+
+
             GenerateAuditLogs();
+
             return base.SaveChanges();
         }
 
@@ -222,6 +228,7 @@ namespace GarageRadiatorERP.Api.Data
                     entry.Entity.TenantId = _currentTenantId.Value;
                 }
             }
+
 
             foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ISoftDeletable>())
             {

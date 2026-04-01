@@ -25,6 +25,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             _context = context;
         }
 
+
         public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var query = _context.Products.Include(p => p.Category);
@@ -53,6 +54,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>(data, totalCount, page, limit);
         }
 
+
         public async Task<ProductDto?> GetProductByIdAsync(Guid id, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var p = await _context.Products
@@ -75,6 +77,7 @@ namespace GarageRadiatorERP.Api.Services.Products
                 CreatedAt = p.CreatedAt
             };
         }
+
 
         public async Task<ProductDto> CreateProductAsync(CreateProductDto createDto, global::System.Threading.CancellationToken cancellationToken = default)
         {

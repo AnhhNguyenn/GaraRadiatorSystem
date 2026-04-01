@@ -1,5 +1,13 @@
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fix: Sập FE vì biến môi trường (Lỗi 48/45) và Lỗi Double Slash URL (Lỗi 49/34)
+
+const API_URL = (RAW_API_URL || "http://localhost:5248").replace(/\/$/, "");
+// Add `/api/v1` for versioning
+const BASE_URL = `${API_URL}/api/v1`;
+
+// Fix Lỗi 58: Sửa hàm lấy token để tương thích Next.js SSR / Server Components
+// Dùng function regex parse document.cookie hoặc check headers server.
+
 const API_URL = (RAW_API_URL || "http://localhost:5248").replace(/\/$/, "");
 // Add `/api/v1` for versioning
 const BASE_URL = `${API_URL}/api/v1`;
@@ -7,10 +15,51 @@ const BASE_URL = `${API_URL}/api/v1`;
 // Bỏ đọc document.cookie thủ công. Để NextJS/Browser tự lo (Với HttpOnly cookie, Authorization Header là không cần thiết,
 // Server tự bắt cookie auth nếu setup route đúng). Tuy nhiên vì Backend ERP của chúng ta đang dùng JWT Bearer.
 // Ta giữ lại getAuthToken nhưng chỉ fetch SSR customToken hoặc LocalStorage (cho PWA/Mobile wrappers) an toàn.
+
 function getAuthToken(customToken?: string): string | null {
   if (customToken) return customToken;
 
   if (typeof window !== "undefined") {
+
+    // 1. Client Side: Check LocalStorage trước
+    const lsToken = localStorage.getItem("access_token");
+    if (lsToken) return lsToken;
+
+    // 2. Client Side: Check Cookie fallback
+    const match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
+    if (match) return match[2];
+  }
+
+  // Ở Server Component (SSR), nếu không pass customToken vào, sẽ return null.
+  // Developers khi gọi api.products.list() ở Server Page bắt buộc phải parse cookie từ Next `headers()`
+  // và gắn vào bằng một wrapper khác, hoặc call api qua route handler.
+  return null;
+}
+
+// Bổ sung `token` vào RequestInit để SSR Next.js có thể inject token lấy từ `cookies()`
+interface ExtendedRequestInit extends RequestInit {
+  token?: string;
+}
+
+async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {}) {
+  // Fix Thiếu Timeout API (Lỗi 54) bằng AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
+  const token = getAuthToken(options.token);
+  const headers = new Headers(options.headers || {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  // Bối cảnh 5: Chặn từ trứng nước các Request SSR không có token để tránh tốn tài nguyên
+  // Nếu token rỗng, ném Exception Client-side hoặc SSR log thẳng để Dev biết truyền CustomToken
+  if (!token) {
+     throw new Error("UNAUTHORIZED_CLIENT: No access token found. If calling via Server Component (SSR), ensure you pass `customToken` extracted from next/headers cookies.");
+  }
+
+  // Fix Gọi API không cần xác thực (Lỗi 51/16)
+
     return localStorage.getItem("access_token");
   }
 
@@ -49,6 +98,7 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     }
   }
 
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -69,12 +119,19 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     clearTimeout(timeoutId);
   }
 
+
+  // Fix Bắt lỗi thả trôi (Lỗi 52/17)
+  if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== "undefined") window.location.href = "/login";
+
   if (!response.ok) {
     if (response.status === 401) {
       if (typeof window !== "undefined") {
          window.location.assign('/login');
          return new Promise(() => {});
       }
+
       throw new Error("Phiên đăng nhập hết hạn (401).");
     }
     if (response.status === 403) {
@@ -126,11 +183,15 @@ export const api = {
       const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`, { token: customToken });
       return res;
     },
+
+    profitReport: (start: string, end: string, customToken?: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, { token: customToken }),
+
     profitReport: (start: string, end: string, customToken?: string) =>
       fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, {
         token: customToken,
         timeoutMs: 60000 // Tăng timeout cho báo cáo kế toán nặng
       }),
+
   },
   chat: {
     sessions: (customToken?: string) => fetchFromApi('/chat/sessions', { token: customToken }),

@@ -15,8 +15,11 @@ namespace GarageRadiatorERP.Api.Models.Platforms
 
         public string PayloadJson { get; set; } = string.Empty;
 
+
+
         [StringLength(200)]
         public string? PlatformEventId { get; set; } // Hỗ trợ Idempotency (Ngăn lặp đơn)
+
 
         [Required]
         [StringLength(50)]

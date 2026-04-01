@@ -25,6 +25,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
             _context = context;
         }
 
+
         public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
             // Thêm phân trang (Lỗi 50) và CancellationToken (Lỗi 24)
@@ -47,6 +48,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
 
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>(data, totalCount, page, limit);
         }
+
 
         public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, global::System.Threading.CancellationToken cancellationToken = default)
         {
@@ -71,6 +73,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 Note = expense.Note
             };
         }
+
 
         public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, global::System.Threading.CancellationToken cancellationToken = default)
         {
