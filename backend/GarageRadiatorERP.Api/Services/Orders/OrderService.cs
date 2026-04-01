@@ -22,12 +22,18 @@ namespace GarageRadiatorERP.Api.Services.Orders
         private readonly AppDbContext _context;
         private readonly Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> _hubContext;
         private readonly GarageRadiatorERP.Api.Services.System.ITenantProvider _tenantProvider;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public OrderService(AppDbContext context, Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext, GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider)
+        public OrderService(
+            AppDbContext context,
+            Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext,
+            GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider,
+            Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
             _hubContext = hubContext;
             _tenantProvider = tenantProvider;
+            _configuration = configuration;
         }
 
 
@@ -130,14 +136,15 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         decimal fallbackCostPrice = historicalCosts.TryGetValue(itemDto.ProductId, out var hc) && hc > 0 ? hc : 0;
 
                         // Nếu sản phẩm này hoàn toàn chưa từng được nhập kho bao giờ (historical cost = 0)
-                        // Lúc này mới bất đắc dĩ fallback về 70% giá bán lẻ để không bị âm Profit
+                        // Lúc này mới bất đắc dĩ fallback về % giá bán lẻ cấu hình để không bị âm Profit (Magic number fix)
                         if (fallbackCostPrice == 0 && products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null)
                         {
-
-                             fallbackCostPrice = productObj.Price * 0.7m;
-
-                            fallbackCostPrice = productObj.Price * 0.7m;
-
+                            var defaultMarginStr = _configuration["BusinessSettings:DefaultFallbackMargin"] ?? "0.7";
+                            if (!decimal.TryParse(defaultMarginStr, out decimal defaultMargin))
+                            {
+                                defaultMargin = 0.7m;
+                            }
+                            fallbackCostPrice = productObj.Price * defaultMargin;
                         }
 
                         foreach (var batch in batchesToDeduct)

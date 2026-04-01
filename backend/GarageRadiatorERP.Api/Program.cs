@@ -45,6 +45,9 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 builder.Services.AddProblemDetails();
 
 // Add services to the container.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<GarageRadiatorERP.Api.Services.System.ITenantProvider, GarageRadiatorERP.Api.Services.System.TenantProvider>();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -66,7 +69,6 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IPlatformService, PlatformService>();
-builder.Services.AddSingleton<IWebhookQueueService, WebhookQueueService>();
 builder.Services.AddSingleton<GarageRadiatorERP.Api.Utilities.IEncryptionUtility, GarageRadiatorERP.Api.Utilities.EncryptionUtility>();
 
 builder.Services.AddHostedService<GarageRadiatorERP.Api.Jobs.TokenRenewalJob>();
@@ -129,8 +131,7 @@ var redisConnectionString = builder.Configuration.GetConnectionString("RedisBack
 if (!string.IsNullOrEmpty(redisConnectionString))
 {
     // Cần dotnet add package Microsoft.AspNetCore.SignalR.StackExchangeRedis
-    // signalRBuilder.AddStackExchangeRedis(redisConnectionString);
-    // Commented out to avoid compile error without package, but the structure is here for DevOps.
+    signalRBuilder.AddStackExchangeRedis(redisConnectionString);
 }
 
 // Bối cảnh 4 (Phần 2): Fail-fast nếu thiếu biến môi trường cấu hình Secret

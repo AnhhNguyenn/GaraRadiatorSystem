@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
 using System.Text;
 using GarageRadiatorERP.Api.Services.Platforms;
+using Microsoft.EntityFrameworkCore;
 
 namespace GarageRadiatorERP.Api.Controllers.Platforms
 {
@@ -9,13 +10,13 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
     [Route("api/webhooks")]
     public class WebhookController : ControllerBase
     {
-        private readonly IWebhookQueueService _queueService;
+        private readonly GarageRadiatorERP.Api.Data.AppDbContext _context;
         private readonly IConfiguration _config;
         private readonly ILogger<WebhookController> _logger;
 
-        public WebhookController(IWebhookQueueService queueService, IConfiguration config, ILogger<WebhookController> logger)
+        public WebhookController(GarageRadiatorERP.Api.Data.AppDbContext context, IConfiguration config, ILogger<WebhookController> logger)
         {
-            _queueService = queueService;
+            _context = context;
             _config = config;
             _logger = logger;
         }
@@ -44,7 +45,19 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             }
 
             _logger.LogInformation("✅ Nhận Webhook Đơn hàng Shopee thành công! Payload: {reqBody}", reqBody);
-            await _queueService.QueueWebhookAsync("Shopee", reqBody);
+
+            // Trích xuất ShopId để gán đúng TenantId tránh mất đơn hàng
+            string? shopId = ExtractShopId(reqBody, "Shopee");
+            Guid tenantId = await GetTenantIdByShopIdAsync("Shopee", shopId);
+
+            _context.PlatformPayloads.Add(new Models.Platforms.PlatformPayload
+            {
+                Platform = "Shopee",
+                PayloadJson = reqBody,
+                Status = "Pending",
+                TenantId = tenantId
+            });
+            await _context.SaveChangesAsync();
 
             return Ok(new { message = "success" });
         }
@@ -70,9 +83,50 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             }
 
             _logger.LogInformation("✅ Nhận Webhook Đơn hàng TikTok thành công! Payload: {reqBody}", reqBody);
-            await _queueService.QueueWebhookAsync("TikTok", reqBody);
+
+            // Trích xuất ShopId để gán đúng TenantId tránh mất đơn hàng
+            string? shopId = ExtractShopId(reqBody, "TikTok");
+            Guid tenantId = await GetTenantIdByShopIdAsync("TikTok", shopId);
+
+            _context.PlatformPayloads.Add(new Models.Platforms.PlatformPayload
+            {
+                Platform = "TikTok",
+                PayloadJson = reqBody,
+                Status = "Pending",
+                TenantId = tenantId
+            });
+            await _context.SaveChangesAsync();
 
             return Ok(new { message = "success" });
+        }
+
+        private string? ExtractShopId(string payloadJson, string platform)
+        {
+            try
+            {
+                var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                if (platform == "Shopee" && doc.RootElement.TryGetProperty("shop_id", out var shopeeShopId))
+                {
+                    return shopeeShopId.ToString();
+                }
+                if (platform == "TikTok" && doc.RootElement.TryGetProperty("shop_id", out var tiktokShopId))
+                {
+                    return tiktokShopId.ToString();
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private async Task<Guid> GetTenantIdByShopIdAsync(string platform, string? shopId)
+        {
+            if (string.IsNullOrEmpty(shopId)) return Guid.Empty;
+
+            var store = await _context.PlatformStores
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.PlatformName == platform && s.ShopId == shopId);
+
+            return store?.TenantId ?? Guid.Empty;
         }
     }
 }
