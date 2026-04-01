@@ -1,39 +1,34 @@
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fix: Sập FE vì biến môi trường (Lỗi 48/45) và Lỗi Double Slash URL (Lỗi 49/34)
+
 const API_URL = (RAW_API_URL || "http://localhost:5248").replace(/\/$/, "");
 // Add `/api/v1` for versioning
 const BASE_URL = `${API_URL}/api/v1`;
 
-// Fix Lỗi 58: Sửa hàm lấy token để tương thích Next.js SSR / Server Components
-// Dùng function regex parse document.cookie hoặc check headers server.
+// Dùng function getAuthToken an toàn. Tránh dùng document.cookie trực tiếp phòng chống XSS.
+// Ưu tiên đọc từ LocalStorage, NextJS xử lý HttpOnly cookie thì gửi tự động qua fetch credentials (nếu cấu hình),
+// hoặc pass customToken từ SSR Server Component.
 function getAuthToken(customToken?: string): string | null {
   if (customToken) return customToken;
 
   if (typeof window !== "undefined") {
-    // 1. Client Side: Check LocalStorage trước
-    const lsToken = localStorage.getItem("access_token");
-    if (lsToken) return lsToken;
-
-    // 2. Client Side: Check Cookie fallback
-    const match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
-    if (match) return match[2];
+    // Chỉ đọc từ LocalStorage. Tránh parse document.cookie (chống XSS)
+    return localStorage.getItem("access_token");
   }
 
-  // Ở Server Component (SSR), nếu không pass customToken vào, sẽ return null.
-  // Developers khi gọi api.products.list() ở Server Page bắt buộc phải parse cookie từ Next `headers()`
-  // và gắn vào bằng một wrapper khác, hoặc call api qua route handler.
   return null;
 }
 
-// Bổ sung `token` vào RequestInit để SSR Next.js có thể inject token lấy từ `cookies()`
 interface ExtendedRequestInit extends RequestInit {
   token?: string;
+  timeoutMs?: number; // Cho phép API nặng (Báo cáo) kéo dài timeout thay vì lock chết ở 15s (Lỗi Timeout Báo cáo)
 }
 
 async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {}) {
-  // Fix Thiếu Timeout API (Lỗi 54) bằng AbortController
+  // Cấu hình linh hoạt Timeout. Báo cáo kế toán cho 60s, CRUD bình thường 15s.
+  const timeoutLimit = options.timeoutMs || 15000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutLimit);
 
   const token = getAuthToken(options.token);
   const headers = new Headers(options.headers || {});
@@ -41,13 +36,22 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     headers.set('Content-Type', 'application/json');
   }
 
-  // Bối cảnh 5: Chặn từ trứng nước các Request SSR không có token để tránh tốn tài nguyên
-  // Nếu token rỗng, ném Exception Client-side hoặc SSR log thẳng để Dev biết truyền CustomToken
+  // Bối cảnh 4: Đuổi việc nhân viên Kế toán bằng UX tồi
+  // Thay vì `throw new Error` gây trắng màn hình, ta redirect trực tiếp hoặc trả về null an toàn
+  // cho phép UI NextJS xử lý mềm mại hơn
   if (!token) {
-     throw new Error("UNAUTHORIZED_CLIENT: No access token found. If calling via Server Component (SSR), ensure you pass `customToken` extracted from next/headers cookies.");
+    if (typeof window !== "undefined") {
+      window.location.assign('/login');
+      // Trả về promise không bao giờ resolve để ngăn hook React/SWR bị gãy trong lúc đợi điều hướng
+      return new Promise(() => {});
+    } else {
+      // Ở SSR, không throw error làm sập layout server, trả null hoặc object trống
+      console.warn(`[SSR Auth Missing] Cannot fetch ${endpoint}. Please pass customToken from next/headers.`);
+      return { data: [], totalCount: 0, _ssrAuthFailed: true };
+    }
   }
 
-  // Fix Gọi API không cần xác thực (Lỗi 51/16)
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -68,10 +72,15 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     clearTimeout(timeoutId);
   }
 
+
   // Fix Bắt lỗi thả trôi (Lỗi 52/17)
   if (!response.ok) {
     if (response.status === 401) {
-      if (typeof window !== "undefined") window.location.href = "/login";
+      if (typeof window !== "undefined") {
+         window.location.assign('/login');
+         return new Promise(() => {});
+      }
+
       throw new Error("Phiên đăng nhập hết hạn (401).");
     }
     if (response.status === 403) {
@@ -123,7 +132,13 @@ export const api = {
       const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`, { token: customToken });
       return res;
     },
-    profitReport: (start: string, end: string, customToken?: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, { token: customToken }),
+
+    profitReport: (start: string, end: string, customToken?: string) =>
+      fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, {
+        token: customToken,
+        timeoutMs: 60000 // Tăng timeout cho báo cáo kế toán nặng
+      }),
+
   },
   chat: {
     sessions: (customToken?: string) => fetchFromApi('/chat/sessions', { token: customToken }),

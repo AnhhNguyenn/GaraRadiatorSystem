@@ -3,10 +3,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GarageRadiatorERP.Api.Models.Finance
 {
-    public class Expense : GarageRadiatorERP.Api.Models.System.ISoftDeletable
+    public class Expense : GarageRadiatorERP.Api.Models.System.ISoftDeletable, GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(100)]
@@ -21,10 +23,12 @@ namespace GarageRadiatorERP.Api.Models.Finance
         public bool IsDeleted { get; set; } = false;
     }
 
-    public class ProfitReport
+    public class ProfitReport : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         public DateTime Date { get; set; }
         public decimal Revenue { get; set; }

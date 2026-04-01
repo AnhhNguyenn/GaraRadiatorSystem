@@ -5,10 +5,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GarageRadiatorERP.Api.Models.Orders
 {
-    public class Customer
+    public class Customer : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(200)]
@@ -36,10 +38,12 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 
-    public class Order : GarageRadiatorERP.Api.Models.System.ISoftDeletable
+    public class Order : GarageRadiatorERP.Api.Models.System.ISoftDeletable, GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         public Guid? CustomerId { get; set; }
         public Customer? Customer { get; set; }

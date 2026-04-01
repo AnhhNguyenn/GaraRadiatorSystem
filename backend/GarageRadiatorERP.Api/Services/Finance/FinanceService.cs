@@ -11,9 +11,9 @@ namespace GarageRadiatorERP.Api.Services.Finance
 {
     public interface IFinanceService
     {
-        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
-        Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default);
-        Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, global::System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class FinanceService : IFinanceService
@@ -25,7 +25,8 @@ namespace GarageRadiatorERP.Api.Services.Finance
             _context = context;
         }
 
-        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
             // Thêm phân trang (Lỗi 50) và CancellationToken (Lỗi 24)
             var query = _context.Expenses;
@@ -48,7 +49,8 @@ namespace GarageRadiatorERP.Api.Services.Finance
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>(data, totalCount, page, limit);
         }
 
-        public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default)
+
+        public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var expense = new Expense
             {
@@ -72,7 +74,8 @@ namespace GarageRadiatorERP.Api.Services.Finance
             };
         }
 
-        public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default)
+
+        public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, global::System.Threading.CancellationToken cancellationToken = default)
         {
             // Bối cảnh 1: Đảm bảo thời gian tính là bao gồm trọn vẹn ngày cuối cùng
             var start = startDate.Date;

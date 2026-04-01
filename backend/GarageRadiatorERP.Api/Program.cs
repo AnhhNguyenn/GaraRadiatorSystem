@@ -25,9 +25,17 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+
     // Tùy chọn: Xóa KnownNetworks/KnownProxies nếu chạy trong Docker/K8s mà không biết trước IP của Proxy
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
+
+
+    // Bảo mật Hạ tầng (Phần 3): Mở cửa cho Hacker giả mạo IP (Lỗi X-Forwarded-For)
+    // KHÔNG xóa KnownNetworks. Thay vào đó, thiết lập ForwardLimit hoặc cấu hình dải IP Proxy (VD: Cloudflare/Nginx IP)
+    // Nếu chạy Docker cục bộ qua Nginx, hãy dùng options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
+    options.ForwardLimit = 2; // Chặn spoofing chain dài hơn cần thiết
+
 });
 
 // Configure Kestrel to remove Server header (Security - Lỗi 12)
@@ -70,13 +78,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJs", policy =>
     {
-        // STRICT CORS for VPS Deployment
-        // Replace these with actual production domains in the future
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "https://your-production-frontend-domain.com"
-            )
+
+        // Hardcode CORS - Cản trở mở rộng kinh doanh B2B (Dùng Wildcard Validation)
+        policy.SetIsOriginAllowed(origin =>
+            {
+                var uri = new Uri(origin);
+                var host = uri.Host;
+                return host.EndsWith(".garageradiator.com") || host == "localhost" || host == "127.0.0.1";
+            })
+
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -95,6 +105,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
+
 
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
@@ -139,8 +150,11 @@ builder.Services.AddAuthentication(options =>
 {
     options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        // JWT lỏng lẻo "Nhận vơ họ hàng": Cấu hình bảo mật JWT Token Identity
+        ValidateIssuer = true,
+        ValidIssuer = "https://auth.garageradiator.com",
+        ValidateAudience = true,
+        ValidAudience = "erp-api",
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtSecretKey))
@@ -155,19 +169,25 @@ builder.Services.AddRateLimiter(options =>
 
     options.AddPolicy("fixed", httpContext =>
     {
+
         // Lỗi 59: Bypass Rate Limiting dễ như trở bàn tay
         // Không tự đọc X-Forwarded-For bằng tay để tránh Fake Header Hacker attack.
         // UseForwardedHeaders() sẽ tự map IP thật từ Trusted Proxy sang RemoteIpAddress một cách an toàn.
         var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
 
+        // Phân lập Rate Limit theo Tenant (Gara) hoặc Authenticated User ID nếu có.
+        // Nếu không có (như API Login public), mới fallback về ClientIP
+        var tenantId = httpContext.User?.FindFirst("TenantId")?.Value;
+        var partitionKey = !string.IsNullOrEmpty(tenantId) ? $"Tenant_{tenantId}" : (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
         return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: clientIp ?? "unknown",
+            partitionKey: partitionKey,
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = string.IsNullOrEmpty(tenantId) ? 100 : 1500, // Khách Gara (LAN) được 1500req/min. Public endpoints là 100.
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 2
+                QueueLimit = 10
             });
     });
 });
@@ -177,6 +197,13 @@ var app = builder.Build();
 app.UseForwardedHeaders(); // Phải nằm trước các middleware khác để lấy đúng IP
 
 app.UseExceptionHandler(); // Kích hoạt ProblemDetails Global Exception Handler (Lỗi 37)
+
+
+
+// Bối cảnh 5: Có Serilog nhưng bị "Mù" Request.
+// Ghi nhận toàn bộ vòng đời của mọi HTTP Request (Method, Status, Timing...) để trace lỗi.
+app.UseSerilogRequestLogging();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
