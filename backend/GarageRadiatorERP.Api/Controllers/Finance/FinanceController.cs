@@ -21,7 +21,10 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
             var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var end = endDate ?? DateTime.UtcNow;
 
-            var result = await _financeService.GetProfitReportAsync(start, end, cancellationToken);
+            // Bối cảnh 3: Mở rộng EndDate để vét cạn doanh thu giờ/phút/giây của ngày cuối cùng
+            var inclusiveEnd = end.Date.AddDays(1); // Tránh lỗi làm tròn Ticks của SQL Server
+
+            var result = await _financeService.GetProfitReportAsync(start, inclusiveEnd, cancellationToken);
 
             // Gắn thêm Period format cho Front-end dễ hiển thị
             var response = new

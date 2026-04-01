@@ -80,15 +80,15 @@ namespace GarageRadiatorERP.Api.Services.Finance
             var paidStatus = Models.Orders.PaymentStatus.Paid.ToString();
 
             decimal totalRevenue = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate && o.PaymentStatus == paidStatus)
+                .Where(o => o.OrderDate >= startDate && o.OrderDate < endDate && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0;
 
             decimal totalCost = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate && o.PaymentStatus == paidStatus)
+                .Where(o => o.OrderDate >= startDate && o.OrderDate < endDate && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalCost, cancellationToken) ?? 0;
 
             decimal totalExpense = await _context.Expenses
-                .Where(e => e.Date >= startDate && e.Date <= endDate)
+                .Where(e => e.Date >= startDate && e.Date < endDate)
                 .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0;
 
             return new ProfitReportDto
