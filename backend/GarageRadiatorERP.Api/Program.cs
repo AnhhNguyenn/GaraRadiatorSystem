@@ -40,7 +40,16 @@ builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<ApplicationUser, ApplicationRole>()
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+    {
+        // Bảo mật Mật khẩu & Brute-Force
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Password.RequireDigit = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequireUppercase = true;
+    })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -70,7 +79,7 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials(); // Required if using cookies/auth tokens across origins
+            .AllowCredentials();
     });
 });
 
@@ -139,10 +148,11 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddAuthorization();
 
-// Cấu hình Rate Limiting chống DDoS/Spam (100 request / 1 phút / 1 IP)
+// Cấu hình Rate Limiting B2B SaaS thông minh hơn (1000 req/phút/Gara thay vì chặn cứng 100 theo IP)
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
     options.AddPolicy("fixed", httpContext =>
     {
         // Lỗi 59: Bypass Rate Limiting dễ như trở bàn tay
@@ -154,7 +164,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: clientIp ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = string.IsNullOrEmpty(tenantId) ? 100 : 1500, // Khách Gara (LAN) được 1500req/min. Public endpoints là 100.
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 2

@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 namespace GarageRadiatorERP.Api.Controllers.Platforms
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     public class WebhooksController : ControllerBase
     {
-        private readonly IPlatformService _platformService;
+        private readonly IWebhookQueueService _webhookQueueService;
 
-        public WebhooksController(IPlatformService platformService)
+        public WebhooksController(IWebhookQueueService webhookQueueService)
         {
-            _platformService = platformService;
+            _webhookQueueService = webhookQueueService;
         }
 
         [HttpPost("shopee")]
@@ -34,9 +34,10 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
             var payloadJson = await reader.ReadToEndAsync();
 
-            await _platformService.ProcessTikTokWebhookAsync(payloadJson);
+            // Đã fix lỗi 2 phần 5
+            await _webhookQueueService.QueueWebhookAsync("TikTok", payloadJson);
 
-            return Ok();
+            return Ok(new { success = true });
         }
     }
 }

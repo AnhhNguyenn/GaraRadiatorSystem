@@ -14,8 +14,13 @@ namespace GarageRadiatorERP.Api.Data
 {
     public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly GarageRadiatorERP.Api.Services.System.ITenantProvider _tenantProvider;
+        private Guid? _currentTenantId;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider) : base(options)
         {
+            _tenantProvider = tenantProvider;
+            _currentTenantId = _tenantProvider.GetTenantId();
         }
 
         // PIM

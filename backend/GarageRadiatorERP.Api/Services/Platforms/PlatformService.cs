@@ -45,7 +45,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
 
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                using var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
 
                 // Assuming standard Shopee push: {"data": {"ordersn": "123", "status": "READY_TO_SHIP"}} // Or Chat: {"buyer_id": "123", "message": "Hi"}
@@ -64,7 +64,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     await UpsertChatMessageAsync("Shopee", buyerIdProp.GetString() ?? "Unknown", msgProp.GetString() ?? "");
                 }
             }
-            catch (System.Text.Json.JsonException) { /* Ignored if invalid json/structure */ }
+            catch (global::System.Text.Json.JsonException) { /* Ignored if invalid json/structure */ }
         }
 
         public async Task ProcessTikTokWebhookAsync(string payloadJson)
@@ -74,7 +74,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
 
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                using var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
 
                 // Assuming TikTok push: {"data": {"order_id": "123", "order_status": "AWAITING_SHIPMENT"}}
@@ -93,7 +93,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     await UpsertChatMessageAsync("TikTok", buyerIdProp.GetString() ?? "Unknown", msgProp.GetString() ?? "");
                 }
             }
-            catch (System.Text.Json.JsonException) { }
+            catch (global::System.Text.Json.JsonException) { }
         }
 
         private async Task UpsertOnlineOrderAsync(string platform, string orderId, string status)
