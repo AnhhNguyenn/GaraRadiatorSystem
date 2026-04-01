@@ -132,6 +132,9 @@ namespace GarageRadiatorERP.Api.Data
             builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
+
+            // Bối cảnh 1: Kích hoạt Concurrency Check thực sự cho kho
+            builder.Entity<InventoryBatch>().Property(b => b.RowVersion).IsRowVersion();
         }
 
         public override int SaveChanges()

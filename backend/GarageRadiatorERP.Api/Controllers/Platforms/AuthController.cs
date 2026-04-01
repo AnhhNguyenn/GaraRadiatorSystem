@@ -27,20 +27,35 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             _encryptionUtility = encryptionUtility;
         }
 
-        // Endpoint cấp State an toàn (Stateless) cho Frontend khởi tạo OAuth
+        // Bối cảnh 2: Endpoint cấp State chống Login CSRF có gắn User ID
+        // (Trong môi trường thật, Endpoint này cần [Authorize])
         [HttpGet("generate-oauth-url/{platform}")]
         public IActionResult GenerateOAuthUrl(string platform)
         {
-            var rawState = $"{platform}_{Guid.NewGuid()}_{DateTime.UtcNow.Ticks}";
+            // Thay vì ký JWT vô danh, ta ký State kẹp chung với User ID của tài khoản đang đăng nhập
+            // Để khi TikTok/Shopee Redirect về, ta so sánh xem State này có phải CỦA CHÍNH TÀI KHOẢN NÀY sinh ra không
+            var userId = User?.Identity?.Name ?? "anonymous_but_needs_auth"; // Giả lập Auth UserId
+            var rawState = $"{platform}_{userId}_{Guid.NewGuid()}_{DateTime.UtcNow.Ticks}";
             var encryptedState = _encryptionUtility.Encrypt(rawState);
+
+            // Set thêm một Cookie "oauth_correlation" với SameSite=Lax (vẫn cho phép callback get top-level navigation, tốt hơn Strict)
+            Response.Cookies.Append("oauth_correlation", encryptedState, new Microsoft.AspNetCore.Http.CookieOptions { HttpOnly = true, SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax, Secure = true, MaxAge = TimeSpan.FromMinutes(15) });
 
             // Giả lập trả về URL. Trong thực tế lấy từ Config tùy theo Tiktok/Shopee
             return Ok(new { url = $"https://{platform.ToLower()}.com/oauth/authorize?client_id=xxx&state={encryptedState}&redirect_uri=xxx" });
         }
 
         [HttpGet("shopee/callback")]
-        public async Task<IActionResult> ShopeeCallback([FromQuery] string code, [FromQuery] string shop_id)
+        public async Task<IActionResult> ShopeeCallback([FromQuery] string code, [FromQuery] string shop_id, [FromQuery] string state)
         {
+            // Bối cảnh 2: Chống CSRF cho Shopee
+            var expectedState = Request.Cookies["oauth_correlation"];
+            if (string.IsNullOrEmpty(state) || state != expectedState)
+            {
+                _logger.LogWarning("CSRF validation failed for Shopee Auth Callback.");
+                return BadRequest("Invalid state parameter. CSRF validation failed.");
+            }
+
             _logger.LogInformation($"Received Shopee Auth Callback: code={code}, shop_id={shop_id}");
 
             // Lỗi 29 & 43: Auth Race Condition & Store Duplication. Use UPSERT logic / Transaction.
@@ -98,21 +113,25 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("tiktok/callback")]
         public async Task<IActionResult> TikTokCallback([FromQuery] string auth_code, [FromQuery] string state)
         {
-            // Fix Lỗi Khóa chết OAuth do SameSite Cookie (Lỗi 4/59)
-            // Thay vì dựa vào Cookie (bị trình duyệt chặn), ta giải mã trực tiếp State được ký (Stateless).
-            if (string.IsNullOrEmpty(state))
+            // Bối cảnh 2: Thay vì chỉ giải mã Stateless dễ bị Replay Attack, kết hợp Cookie SameSite=Lax (Cross-Site top level GET vẫn gửi Cookie)
+            var expectedState = Request.Cookies["oauth_correlation"];
+
+            if (string.IsNullOrEmpty(state) || state != expectedState)
             {
-                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Missing State).");
-                return BadRequest("Missing state parameter. CSRF validation failed.");
+                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback.");
+                return BadRequest("Missing or mismatched state parameter. CSRF validation failed.");
             }
 
             try
             {
                 var decryptedState = _encryptionUtility.Decrypt(state);
-                if (string.IsNullOrEmpty(decryptedState) || !decryptedState.StartsWith("TikTok_"))
+                var userId = User?.Identity?.Name ?? "anonymous_but_needs_auth"; // Match với lúc Generate
+
+                // Kiểm tra xem State này có phải do chính User hiện tại sinh ra không
+                if (string.IsNullOrEmpty(decryptedState) || !decryptedState.StartsWith($"TikTok_{userId}_"))
                 {
-                    _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Forged State).");
-                    return BadRequest("Invalid state parameter. CSRF validation failed.");
+                    _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Forged State or UserId mismatch).");
+                    return BadRequest("Invalid state parameter ownership. CSRF validation failed.");
                 }
             }
             catch
@@ -120,6 +139,9 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                 _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Decryption Error).");
                 return BadRequest("Invalid state parameter signature. CSRF validation failed.");
             }
+
+            // Xóa Cookie đi để chống dùng lại (Replay)
+            Response.Cookies.Delete("oauth_correlation");
 
             _logger.LogInformation($"Received TikTok Auth Callback: auth_code={auth_code}, state={state}");
 

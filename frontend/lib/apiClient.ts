@@ -88,11 +88,11 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
 
 export const api = {
   products: {
-    // Lỗi 60: Bổ sung Metadata TotalCount, trả về .data để UI không sập khi expect Array.
+    // Bối cảnh 4: Fix Pagination Metadata, giữ nguyên Object DTO có TotalCount để Frontend Pagination có thể đọc
     // Lỗi 63: Truyền token vào cho Next.js Server Components có chỗ pass cookie
     list: async (page: number = 1, limit: number = 100, customToken?: string) => {
       const res = await fetchFromApi(`/products?page=${page}&limit=${limit}`, { token: customToken });
-      return res.data ? res.data : res; // Tương thích ngược nếu API chưa update kịp
+      return res; // Không tự ý gọt dữ liệu, để Client UI lấy res.data và res.totalCount
     },
     get: (id: string, customToken?: string) => fetchFromApi(`/products/${id}`, { token: customToken }),
     create: (data: any, customToken?: string) => fetchFromApi('/products', { method: 'POST', body: JSON.stringify(data), token: customToken }),
@@ -100,14 +100,14 @@ export const api = {
   inventory: {
     batches: async (page: number = 1, limit: number = 100, customToken?: string) => {
       const res = await fetchFromApi(`/inventory/batches?page=${page}&limit=${limit}`, { token: customToken });
-      return res.data ? res.data : res;
+      return res;
     },
     createBatch: (data: any, customToken?: string) => fetchFromApi('/inventory/batches', { method: 'POST', body: JSON.stringify(data), token: customToken }),
   },
   orders: {
     list: async (page: number = 1, limit: number = 100, customToken?: string) => {
       const res = await fetchFromApi(`/orders?page=${page}&limit=${limit}`, { token: customToken });
-      return res.data ? res.data : res;
+      return res;
     },
     create: (data: any, customToken?: string) => fetchFromApi('/orders', { method: 'POST', body: JSON.stringify(data), token: customToken }),
     createPOS: (data: any, customToken?: string) => fetchFromApi('/orders/pos', { method: 'POST', body: JSON.stringify(data), token: customToken }),
@@ -115,7 +115,7 @@ export const api = {
   finance: {
     expenses: async (page: number = 1, limit: number = 100, customToken?: string) => {
       const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`, { token: customToken });
-      return res.data ? res.data : res;
+      return res;
     },
     profitReport: (start: string, end: string, customToken?: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, { token: customToken }),
   },
