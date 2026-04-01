@@ -11,9 +11,9 @@ namespace GarageRadiatorERP.Api.Services.Products
 {
     public interface IProductService
     {
-        Task<IEnumerable<ProductDto>> GetAllProductsAsync();
-        Task<ProductDto?> GetProductByIdAsync(Guid id);
-        Task<ProductDto> CreateProductAsync(CreateProductDto createDto);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<ProductDto?> GetProductByIdAsync(Guid id, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<ProductDto> CreateProductAsync(CreateProductDto createDto, global::System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class ProductService : IProductService
@@ -25,10 +25,16 @@ namespace GarageRadiatorERP.Api.Services.Products
             _context = context;
         }
 
-        public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
-            return await _context.Products
-                .Include(p => p.Category)
+            var query = _context.Products.Include(p => p.Category);
+
+            int totalCount = await query.CountAsync(cancellationToken);
+
+            var data = await query
+                .OrderByDescending(p => p.CreatedAt) // Pagination needs OrderBy
+                .Skip((page - 1) * limit)
+                .Take(limit)
                 .Select(p => new ProductDto
                 {
                     Id = p.Id,
@@ -42,14 +48,16 @@ namespace GarageRadiatorERP.Api.Services.Products
                     UnitOfMeasure = p.UnitOfMeasure,
                     CreatedAt = p.CreatedAt
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
+
+            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>(data, totalCount, page, limit);
         }
 
-        public async Task<ProductDto?> GetProductByIdAsync(Guid id)
+        public async Task<ProductDto?> GetProductByIdAsync(Guid id, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var p = await _context.Products
                 .Include(p => p.Category)
-                .FirstOrDefaultAsync(x => x.Id == id);
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
             if (p == null) return null;
 
@@ -68,7 +76,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             };
         }
 
-        public async Task<ProductDto> CreateProductAsync(CreateProductDto createDto)
+        public async Task<ProductDto> CreateProductAsync(CreateProductDto createDto, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var product = new Product
             {
@@ -83,7 +91,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             };
 
             _context.Products.Add(product);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return new ProductDto
             {

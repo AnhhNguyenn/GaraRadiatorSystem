@@ -26,13 +26,13 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             using var reader = new StreamReader(Request.Body);
             var reqBody = await reader.ReadToEndAsync();
             var signature = Request.Headers["Authorization"].ToString();
-            
+
             var secret = _config["Shopee:AppSecret"] ?? "test_secret";
-            
+
             // Xây dựng HMAC SHA256 theo chuẩn Webhook Shopee: Url|Payload
             var url = $"{Request.Scheme}://{Request.Host}{Request.Path}";
             var baseString = $"{url}|{reqBody}";
-            
+
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(baseString));
             var expectedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
@@ -55,9 +55,9 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             using var reader = new StreamReader(Request.Body);
             var reqBody = await reader.ReadToEndAsync();
             var signature = Request.Headers["X-TTP-Signature"].ToString();
-            
+
             var secret = _config["TikTok:AppSecret"] ?? "test_secret";
-            
+
             // TikTok ký trực tiếp trên payload body
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(reqBody));

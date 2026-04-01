@@ -23,20 +23,20 @@ namespace GarageRadiatorERP.Api.Models.Orders
         [Required]
         [StringLength(50)]
         public string Type { get; set; } = "Retail"; // Retail (Lẻ), Garage (Thợ), Wholesale (Đại lý)
-        
+
         [StringLength(50)]
         public string? PricingTier { get; set; } // Bậc giá: VIP1, VIP2, Normal
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal CreditLimit { get; set; } // Hạn mức công nợ cho phép Gara nợ
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CurrentBalance { get; set; } // Dư nợ hiẹn tại
 
         public ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 
-    public class Order
+    public class Order : GarageRadiatorERP.Api.Models.System.ISoftDeletable
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -46,23 +46,23 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         [Required]
         [StringLength(50)]
-        public string Source { get; set; } = "POS"; // POS, Shopee, TikTok, Zalo
+        public string Source { get; set; } = OrderSource.POS.ToString();
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; } = "Pending"; // Pending, Reserved (Giữ kho), Completed, Cancelled, Returned
+        public string Status { get; set; } = OrderStatus.Pending.ToString();
 
         [StringLength(50)]
-        public string PaymentStatus { get; set; } = "Unpaid"; // Unpaid, Partial, Paid, Debt (Ghi nợ)
+        public string PaymentStatus { get; set; } = GarageRadiatorERP.Api.Models.Orders.PaymentStatus.Unpaid.ToString();
 
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalCost { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal Discount { get; set; } // Chiết khấu tổng đơn cho khách sỉ
 
@@ -74,6 +74,8 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
         public OnlineOrderDetails? OnlineDetails { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 
     public class OrderItem
@@ -94,11 +96,11 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public int Quantity { get; set; }
 
         // Bán thiếu hàng/giao sau (Ví dụ mua 10 có 6, đang nợ 4 cái)
-        public int BackorderQuantity { get; set; } 
+        public int BackorderQuantity { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CostPrice { get; set; } // Kế thừa từ CostPrice của Batch xuất ra
     }
@@ -132,7 +134,7 @@ namespace GarageRadiatorERP.Api.Models.Orders
         public string? ShippingCode { get; set; }
 
         public string? LabelUrl { get; set; } // Đường dẫn tem in 100x150
-        
+
         public DateTime? WebhookReceivedAt { get; set; }
     }
 }

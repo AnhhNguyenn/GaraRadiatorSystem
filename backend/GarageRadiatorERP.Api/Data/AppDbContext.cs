@@ -14,8 +14,13 @@ namespace GarageRadiatorERP.Api.Data
 {
     public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly GarageRadiatorERP.Api.Services.System.ITenantProvider _tenantProvider;
+        private Guid? _currentTenantId;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider) : base(options)
         {
+            _tenantProvider = tenantProvider;
+            _currentTenantId = _tenantProvider.GetTenantId();
         }
 
         // PIM
@@ -93,29 +98,139 @@ namespace GarageRadiatorERP.Api.Data
                 .WithOne(o => o.OnlineDetails)
                 .HasForeignKey<OnlineOrderDetails>(d => d.OrderId);
 
-            // Precision for decimals
+            // Fix sai số giá vốn (Lỗi 23) và phân chia Precision
             var decimalProps = builder.Model.GetEntityTypes()
                 .SelectMany(t => t.GetProperties())
                 .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?));
 
             foreach (var property in decimalProps)
             {
-                property.SetColumnType("decimal(18,2)");
+                if (property.Name.Contains("Cost") || property.Name.Contains("Price"))
+                {
+                    property.SetColumnType("decimal(18,4)");
+                }
+                else
+                {
+                    property.SetColumnType("decimal(18,2)");
+                }
             }
+
+            // Fix SQL Server sập vì Index nvarchar(max) (Lỗi 22)
+            builder.Entity<Product>().Property(p => p.SKU).HasMaxLength(100);
+            builder.Entity<Product>().Property(p => p.Barcode).HasMaxLength(100);
 
             // Database Indexing chuẩn xác để tăng Query speed
             builder.Entity<Product>().HasIndex(p => p.SKU).IsUnique();
             builder.Entity<Product>().HasIndex(p => p.Barcode);
-            
+
             builder.Entity<BinLocation>().HasIndex(b => b.Barcode).IsUnique();
 
             builder.Entity<InventoryBatch>().HasIndex(b => b.ImportDate);
             builder.Entity<InventoryBatch>().HasIndex(b => b.ProductId);
-            
+
             builder.Entity<Order>().HasIndex(o => o.OrderDate);
             builder.Entity<Order>().HasIndex(o => o.Status);
-            
+
             builder.Entity<OnlineOrderDetails>().HasIndex(o => o.PlatformOrderId).IsUnique();
+
+            // Bối cảnh 4: Ngăn chặn nhân bản Store khi có Race Condition
+            builder.Entity<PlatformStore>().HasIndex(s => new { s.PlatformName, s.ShopId }).IsUnique();
+
+            // Fix Lỗi 52: Soft Delete Query Filter
+            builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
+            builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
+            builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
+
+            // Cấu hình Global Query Filter cho Multi-Tenant (Bảo vệ dữ liệu chéo Gara)
+            foreach (var entityType in builder.Model.GetEntityTypes())
+            {
+                if (typeof(GarageRadiatorERP.Api.Models.System.ITenantEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
+                    var tenantProperty = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
+
+                    var tenantIdValue = System.Linq.Expressions.Expression.Field(
+                        System.Linq.Expressions.Expression.Constant(this),
+                        typeof(AppDbContext).GetField("_currentTenantId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    );
+
+                    // e.TenantId == _currentTenantId.Value
+                    var condition = System.Linq.Expressions.Expression.Equal(tenantProperty, System.Linq.Expressions.Expression.Property(tenantIdValue, "Value"));
+
+                    // Build expression: e => e.TenantId == _currentTenantId.Value
+                    var lambda = System.Linq.Expressions.Expression.Lambda(condition, parameter);
+
+                    builder.Entity(entityType.ClrType).HasQueryFilter(lambda);
+                }
+            }
+
+            // Bối cảnh 1: Kích hoạt Concurrency Check thực sự cho kho
+            builder.Entity<InventoryBatch>().Property(b => b.RowVersion).IsRowVersion();
+        }
+
+        public override int SaveChanges()
+        {
+            ApplySoftDelete();
+            GenerateAuditLogs();
+            return base.SaveChanges();
+        }
+
+        public override System.Threading.Tasks.Task<int> SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default)
+        {
+            ApplySoftDelete();
+            GenerateAuditLogs();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void GenerateAuditLogs()
+        {
+            // Bối cảnh 2: Thiếu Audit Trail (Nhật ký thao tác) cho ERP
+            ChangeTracker.DetectChanges();
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
+                .Where(e => !(e.Entity is AuditLog)) // Tránh đệ quy
+                .ToList();
+
+            foreach (var entry in entries)
+            {
+                var auditLog = new AuditLog
+                {
+                    TableName = entry.Entity.GetType().Name,
+                    Action = entry.State.ToString(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Lưu các trường dữ liệu JSON cho các thực thể quan trọng nếu cần
+                if (entry.State == EntityState.Modified)
+                {
+                    // Lấy ra tên các Property bị thay đổi
+                    var modifiedProperties = entry.Properties.Where(p => p.IsModified).Select(p => p.Metadata.Name).ToList();
+                    auditLog.OldData = $"Modified: {string.Join(", ", modifiedProperties)}";
+                }
+
+                AuditLogs.Add(auditLog);
+            }
+        }
+
+        private void ApplySoftDelete()
+        {
+            // Tự động gán TenantId khi tạo mới thực thể (Multi-Tenancy Insert)
+            foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ITenantEntity>())
+            {
+                if (entry.State == EntityState.Added && _currentTenantId.HasValue)
+                {
+                    entry.Entity.TenantId = _currentTenantId.Value;
+                }
+            }
+
+            foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ISoftDeletable>())
+            {
+                if (entry.State == EntityState.Deleted)
+                {
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                }
+            }
         }
     }
 }

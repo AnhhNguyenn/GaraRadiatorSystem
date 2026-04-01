@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace GarageRadiatorERP.Api.Controllers.Products
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")] // Fix API Versioning
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
@@ -19,16 +19,16 @@ namespace GarageRadiatorERP.Api.Controllers.Products
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts()
+        public async Task<ActionResult<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>>> GetProducts([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
-            var products = await _productService.GetAllProductsAsync();
+            var products = await _productService.GetAllProductsAsync(page, limit, cancellationToken);
             return Ok(products);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ProductDto>> GetProduct(Guid id)
+        public async Task<ActionResult<ProductDto>> GetProduct(Guid id, System.Threading.CancellationToken cancellationToken)
         {
-            var product = await _productService.GetProductByIdAsync(id);
+            var product = await _productService.GetProductByIdAsync(id, cancellationToken);
             if (product == null)
             {
                 return NotFound();

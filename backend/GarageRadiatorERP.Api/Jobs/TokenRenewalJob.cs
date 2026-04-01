@@ -31,10 +31,11 @@ namespace GarageRadiatorERP.Api.Jobs
                 try
                 {
                     _logger.LogInformation("🔄 Đang chạy Job kiểm tra và gia hạn Token lúc: {Time}", DateTimeOffset.Now);
-                    
+
                     using (var scope = _scopeFactory.CreateScope())
                     {
                         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        var encryptionUtility = scope.ServiceProvider.GetRequiredService<IEncryptionUtility>();
 
                         // Find tokens expiring within 3 days
                         var threshold = DateTime.UtcNow.AddDays(3);
@@ -46,11 +47,11 @@ namespace GarageRadiatorERP.Api.Jobs
                         foreach (var token in expTokens)
                         {
                             _logger.LogInformation($"Renewing token for store {token.Store.StoreName} ({token.Store.PlatformName})");
-                            
+
                             // Mocking API call to Shopee/TikTok to get new token
                             // In a real scenario, you decrypt the old token first, make the request, and encrypt the new one.
-                            token.AccessToken = EncryptionUtility.Encrypt($"{token.Store.PlatformName.ToLower()}_access_renew_{Guid.NewGuid()}");
-                            token.RefreshToken = EncryptionUtility.Encrypt($"{token.Store.PlatformName.ToLower()}_refresh_renew_{Guid.NewGuid()}");
+                            token.AccessToken = encryptionUtility.Encrypt($"{token.Store.PlatformName.ToLower()}_access_renew_{Guid.NewGuid()}");
+                            token.RefreshToken = encryptionUtility.Encrypt($"{token.Store.PlatformName.ToLower()}_refresh_renew_{Guid.NewGuid()}");
                             token.ExpiresAt = DateTime.UtcNow.AddDays(7);
                             token.UpdatedAt = DateTime.UtcNow;
                         }
