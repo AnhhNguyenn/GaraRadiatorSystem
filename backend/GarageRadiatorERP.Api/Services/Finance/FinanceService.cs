@@ -76,12 +76,15 @@ namespace GarageRadiatorERP.Api.Services.Finance
         {
             // Fix Kéo sập Server (Memory Bomb) (Lỗi 19 / 36) - Tính tổng trực tiếp bằng DB
             // Fix Lỗi 57: Thảm họa SumAsync trên tập rỗng gây crash 500
+            // Fix Lỗi 62: Báo cáo tài chính ảo do quên lọc trạng thái "Đã thanh toán"
+            var paidStatus = Models.Orders.PaymentStatus.Paid.ToString();
+
             decimal totalRevenue = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
+                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0;
 
             decimal totalCost = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
+                .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalCost, cancellationToken) ?? 0;
 
             decimal totalExpense = await _context.Expenses

@@ -89,38 +89,39 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
 export const api = {
   products: {
     // Lỗi 60: Bổ sung Metadata TotalCount, trả về .data để UI không sập khi expect Array.
-    list: async (page: number = 1, limit: number = 100) => {
-      const res = await fetchFromApi(`/products?page=${page}&limit=${limit}`);
+    // Lỗi 63: Truyền token vào cho Next.js Server Components có chỗ pass cookie
+    list: async (page: number = 1, limit: number = 100, customToken?: string) => {
+      const res = await fetchFromApi(`/products?page=${page}&limit=${limit}`, { token: customToken });
       return res.data ? res.data : res; // Tương thích ngược nếu API chưa update kịp
     },
-    get: (id: string) => fetchFromApi(`/products/${id}`),
-    create: (data: any) => fetchFromApi('/products', { method: 'POST', body: JSON.stringify(data) }),
+    get: (id: string, customToken?: string) => fetchFromApi(`/products/${id}`, { token: customToken }),
+    create: (data: any, customToken?: string) => fetchFromApi('/products', { method: 'POST', body: JSON.stringify(data), token: customToken }),
   },
   inventory: {
-    batches: async (page: number = 1, limit: number = 100) => {
-      const res = await fetchFromApi(`/inventory/batches?page=${page}&limit=${limit}`);
+    batches: async (page: number = 1, limit: number = 100, customToken?: string) => {
+      const res = await fetchFromApi(`/inventory/batches?page=${page}&limit=${limit}`, { token: customToken });
       return res.data ? res.data : res;
     },
-    createBatch: (data: any) => fetchFromApi('/inventory/batches', { method: 'POST', body: JSON.stringify(data) }),
+    createBatch: (data: any, customToken?: string) => fetchFromApi('/inventory/batches', { method: 'POST', body: JSON.stringify(data), token: customToken }),
   },
   orders: {
-    list: async (page: number = 1, limit: number = 100) => {
-      const res = await fetchFromApi(`/orders?page=${page}&limit=${limit}`);
+    list: async (page: number = 1, limit: number = 100, customToken?: string) => {
+      const res = await fetchFromApi(`/orders?page=${page}&limit=${limit}`, { token: customToken });
       return res.data ? res.data : res;
     },
-    create: (data: any) => fetchFromApi('/orders', { method: 'POST', body: JSON.stringify(data) }),
-    createPOS: (data: any) => fetchFromApi('/orders/pos', { method: 'POST', body: JSON.stringify(data) }),
+    create: (data: any, customToken?: string) => fetchFromApi('/orders', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    createPOS: (data: any, customToken?: string) => fetchFromApi('/orders/pos', { method: 'POST', body: JSON.stringify(data), token: customToken }),
   },
   finance: {
-    expenses: async (page: number = 1, limit: number = 100) => {
-      const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`);
+    expenses: async (page: number = 1, limit: number = 100, customToken?: string) => {
+      const res = await fetchFromApi(`/finance/expenses?page=${page}&limit=${limit}`, { token: customToken });
       return res.data ? res.data : res;
     },
-    profitReport: (start: string, end: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`),
+    profitReport: (start: string, end: string, customToken?: string) => fetchFromApi(`/finance/profit-report?startDate=${start}&endDate=${end}`, { token: customToken }),
   },
   chat: {
-    sessions: () => fetchFromApi('/chat/sessions'),
-    messages: (id: string) => fetchFromApi(`/chat/sessions/${id}/messages`),
-    sendMessage: (id: string, text: string) => fetchFromApi(`/chat/sessions/${id}/messages`, { method: 'POST', body: JSON.stringify({ messageText: text }) }),
+    sessions: (customToken?: string) => fetchFromApi('/chat/sessions', { token: customToken }),
+    messages: (id: string, customToken?: string) => fetchFromApi(`/chat/sessions/${id}/messages`, { token: customToken }),
+    sendMessage: (id: string, text: string, customToken?: string) => fetchFromApi(`/chat/sessions/${id}/messages`, { method: 'POST', body: JSON.stringify({ messageText: text }), token: customToken }),
   }
 };
