@@ -47,9 +47,9 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     } else {
       // Ở SSR, không throw error làm sập layout server.
       // Dựa trên Middleware của Next.js để chặn và redirect trước.
-      // Nếu lọt xuống đây, trả về null để component chủ động handle.
+      // Nếu lọt xuống đây, trả về object dummy cấu trúc chuẩn để tránh TypeErrors (ví dụ: null.map is not a function)
       console.warn(`[SSR Auth Missing] Cannot fetch ${endpoint}. Please pass customToken from next/headers.`);
-      return null;
+      return { data: [], totalCount: 0, _ssrAuthFailed: true };
     }
   }
 

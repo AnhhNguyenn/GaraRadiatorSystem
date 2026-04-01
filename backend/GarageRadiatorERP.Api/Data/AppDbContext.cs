@@ -23,9 +23,6 @@ namespace GarageRadiatorERP.Api.Data
             _currentTenantId = _tenantProvider.GetTenantId();
         }
 
-        // Helper Property cho EF Core Global Query Filter
-        public Guid? CurrentTenantId => _currentTenantId;
-
         // PIM
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductCategory> ProductCategories { get; set; }
@@ -159,13 +156,15 @@ namespace GarageRadiatorERP.Api.Data
                     if (isTenantEntity)
                     {
                         var tenantProperty = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
-                        var currentTenantIdProperty = typeof(AppDbContext).GetProperty(nameof(CurrentTenantId));
 
-                        // Property access directly binds to "this" contextual instance per-request
-                        var tenantIdValue = System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression.Constant(this), currentTenantIdProperty!);
+                        // Cách chuẩn: Truy cập trực tiếp qua method của service để EF Core extract param
+                        var methodInfo = typeof(GarageRadiatorERP.Api.Services.System.ITenantProvider).GetMethod("GetTenantId");
+                        var tenantProviderField = typeof(AppDbContext).GetField("_tenantProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var tenantProviderAccess = System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression.Constant(this), tenantProviderField!);
+                        var getTenantIdCall = System.Linq.Expressions.Expression.Call(tenantProviderAccess, methodInfo!);
 
-                        var hasValueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "HasValue");
-                        var valueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "Value");
+                        var hasValueProp = System.Linq.Expressions.Expression.Property(getTenantIdCall, "HasValue");
+                        var valueProp = System.Linq.Expressions.Expression.Property(getTenantIdCall, "Value");
 
                         var noTenantCondition = System.Linq.Expressions.Expression.Equal(hasValueProp, System.Linq.Expressions.Expression.Constant(false));
                         var matchTenantCondition = System.Linq.Expressions.Expression.Equal(tenantProperty, valueProp);

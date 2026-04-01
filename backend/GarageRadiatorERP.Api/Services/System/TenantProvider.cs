@@ -30,7 +30,7 @@ namespace GarageRadiatorERP.Api.Services.System
             if (_backgroundJobTenantId.HasValue) return _backgroundJobTenantId.Value;
 
             var user = _httpContextAccessor.HttpContext?.User;
-            if (user == null || !user.Identity.IsAuthenticated)
+            if (user == null || user.Identity?.IsAuthenticated != true)
                 return null; // For Background Jobs without setter, needs separate context
 
             // Lấy từ JWT Claims
