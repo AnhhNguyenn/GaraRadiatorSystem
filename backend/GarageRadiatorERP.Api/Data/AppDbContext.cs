@@ -23,6 +23,9 @@ namespace GarageRadiatorERP.Api.Data
             _currentTenantId = _tenantProvider.GetTenantId();
         }
 
+        // Helper Property cho EF Core Global Query Filter
+        public Guid? CurrentTenantId => _currentTenantId;
+
         // PIM
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductCategory> ProductCategories { get; set; }
@@ -156,22 +159,20 @@ namespace GarageRadiatorERP.Api.Data
                     if (isTenantEntity)
                     {
                         var tenantProperty = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
-                        var tenantIdField = typeof(AppDbContext).GetField("_currentTenantId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        if (tenantIdField != null)
-                        {
-                            var tenantIdValue = System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression.Constant(this), tenantIdField);
+                        var currentTenantIdProperty = typeof(AppDbContext).GetProperty(nameof(CurrentTenantId));
 
-                            // _currentTenantId.HasValue == false || e.TenantId == _currentTenantId.Value
-                            var hasValueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "HasValue");
-                            var valueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "Value");
+                        // Property access directly binds to "this" contextual instance per-request
+                        var tenantIdValue = System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression.Constant(this), currentTenantIdProperty!);
 
-                            var noTenantCondition = System.Linq.Expressions.Expression.Equal(hasValueProp, System.Linq.Expressions.Expression.Constant(false));
-                            var matchTenantCondition = System.Linq.Expressions.Expression.Equal(tenantProperty, valueProp);
+                        var hasValueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "HasValue");
+                        var valueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "Value");
 
-                            var tenantCondition = System.Linq.Expressions.Expression.OrElse(noTenantCondition, matchTenantCondition);
+                        var noTenantCondition = System.Linq.Expressions.Expression.Equal(hasValueProp, System.Linq.Expressions.Expression.Constant(false));
+                        var matchTenantCondition = System.Linq.Expressions.Expression.Equal(tenantProperty, valueProp);
 
-                            condition = condition == null ? tenantCondition : System.Linq.Expressions.Expression.AndAlso(condition, tenantCondition);
-                        }
+                        var tenantCondition = System.Linq.Expressions.Expression.OrElse(noTenantCondition, matchTenantCondition);
+
+                        condition = condition == null ? tenantCondition : System.Linq.Expressions.Expression.AndAlso(condition, tenantCondition);
                     }
 
                     if (condition != null)
@@ -225,9 +226,26 @@ namespace GarageRadiatorERP.Api.Data
                 // Lưu các trường dữ liệu JSON cho các thực thể quan trọng nếu cần
                 if (entry.State == EntityState.Modified)
                 {
-                    // Lấy ra tên các Property bị thay đổi
-                    var modifiedProperties = entry.Properties.Where(p => p.IsModified).Select(p => p.Metadata.Name).ToList();
-                    auditLog.OldData = $"Modified: {string.Join(", ", modifiedProperties)}";
+                    var oldValues = new System.Collections.Generic.Dictionary<string, object?>();
+                    var newValues = new System.Collections.Generic.Dictionary<string, object?>();
+
+                    foreach (var property in entry.Properties.Where(p => p.IsModified))
+                    {
+                        oldValues[property.Metadata.Name] = property.OriginalValue;
+                        newValues[property.Metadata.Name] = property.CurrentValue;
+                    }
+
+                    auditLog.OldData = System.Text.Json.JsonSerializer.Serialize(oldValues);
+                    auditLog.NewData = System.Text.Json.JsonSerializer.Serialize(newValues);
+                }
+                else if (entry.State == EntityState.Deleted)
+                {
+                    var oldValues = new System.Collections.Generic.Dictionary<string, object?>();
+                    foreach (var property in entry.Properties)
+                    {
+                        oldValues[property.Metadata.Name] = property.OriginalValue;
+                    }
+                    auditLog.OldData = System.Text.Json.JsonSerializer.Serialize(oldValues);
                 }
 
                 AuditLogs.Add(auditLog);

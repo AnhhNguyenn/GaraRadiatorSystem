@@ -13,13 +13,11 @@ namespace GarageRadiatorERP.Api.Jobs
     public class WebhookProcessorJob : BackgroundService
     {
         private readonly ILogger<WebhookProcessorJob> _logger;
-        private readonly IWebhookQueueService _queue;
         private readonly IServiceScopeFactory _scopeFactory;
 
-        public WebhookProcessorJob(ILogger<WebhookProcessorJob> logger, IWebhookQueueService queue, IServiceScopeFactory scopeFactory)
+        public WebhookProcessorJob(ILogger<WebhookProcessorJob> logger, IServiceScopeFactory scopeFactory)
         {
             _logger = logger;
-            _queue = queue;
             _scopeFactory = scopeFactory;
         }
 
@@ -64,6 +62,16 @@ namespace GarageRadiatorERP.Api.Jobs
                         tasks.Add(Task.Run(async () =>
                         {
                             using var innerScope = _scopeFactory.CreateScope();
+
+                            // Bối cảnh 3 (Phần 2): Kế toán không thấy đơn hàng Online vì TenantId là NULL.
+                            // Bơm TenantId lấy từ Webhook Payload vào Context của Thread này (nếu TenantProvider hỗ trợ set)
+                            // hoặc truyền TenantId vào service. Do kiến trúc dùng DI Global Query Filter, ta sẽ dùng setter tạm.
+                            var tenantProvider = innerScope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Services.System.ITenantProvider>();
+                            if (tenantProvider is GarageRadiatorERP.Api.Services.System.TenantProvider tp && evt.TenantId != Guid.Empty)
+                            {
+                                tp.SetTenantId(evt.TenantId);
+                            }
+
                             var innerDb = innerScope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Data.AppDbContext>();
                             var platformService = innerScope.ServiceProvider.GetRequiredService<IPlatformService>();
 

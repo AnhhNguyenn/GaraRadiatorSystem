@@ -18,11 +18,20 @@ namespace GarageRadiatorERP.Api.Services.System
             _httpContextAccessor = httpContextAccessor;
         }
 
+        private Guid? _backgroundJobTenantId;
+
+        public void SetTenantId(Guid tenantId)
+        {
+            _backgroundJobTenantId = tenantId;
+        }
+
         public Guid? GetTenantId()
         {
+            if (_backgroundJobTenantId.HasValue) return _backgroundJobTenantId.Value;
+
             var user = _httpContextAccessor.HttpContext?.User;
             if (user == null || !user.Identity.IsAuthenticated)
-                return null; // For Background Jobs, needs separate context
+                return null; // For Background Jobs without setter, needs separate context
 
             // Lấy từ JWT Claims
             var tenantClaim = user.FindFirst("TenantId")?.Value;

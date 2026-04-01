@@ -4,10 +4,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GarageRadiatorERP.Api.Models.Platforms
 {
-    public class PlatformPayload
+    public class PlatformPayload : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -30,10 +32,12 @@ namespace GarageRadiatorERP.Api.Models.Platforms
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class PlatformConversation
+    public class PlatformConversation : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -71,10 +75,12 @@ namespace GarageRadiatorERP.Api.Models.Platforms
         public bool IsRead { get; set; } = false;
     }
 
-    public class PlatformStore
+    public class PlatformStore : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(50)]
