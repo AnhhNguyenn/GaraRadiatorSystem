@@ -74,21 +74,25 @@ namespace GarageRadiatorERP.Api.Services.Finance
 
         public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default)
         {
+            // Bối cảnh 1: Đảm bảo thời gian tính là bao gồm trọn vẹn ngày cuối cùng
+            var start = startDate.Date;
+            var endInclusive = endDate.Date.AddDays(1); // Luôn luôn vét cạn đến 00:00:00 của ngày tiếp theo
+
             // Fix Kéo sập Server (Memory Bomb) (Lỗi 19 / 36) - Tính tổng trực tiếp bằng DB
             // Fix Lỗi 57: Thảm họa SumAsync trên tập rỗng gây crash 500
             // Fix Lỗi 62: Báo cáo tài chính ảo do quên lọc trạng thái "Đã thanh toán"
             var paidStatus = Models.Orders.PaymentStatus.Paid.ToString();
 
             decimal totalRevenue = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate < endDate && o.PaymentStatus == paidStatus)
+                .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0;
 
             decimal totalCost = await _context.Orders
-                .Where(o => o.OrderDate >= startDate && o.OrderDate < endDate && o.PaymentStatus == paidStatus)
+                .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
                 .SumAsync(o => (decimal?)o.TotalCost, cancellationToken) ?? 0;
 
             decimal totalExpense = await _context.Expenses
-                .Where(e => e.Date >= startDate && e.Date < endDate)
+                .Where(e => e.Date >= start && e.Date < endInclusive)
                 .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0;
 
             return new ProfitReportDto

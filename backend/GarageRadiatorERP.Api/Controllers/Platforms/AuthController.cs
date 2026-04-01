@@ -48,13 +48,34 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("shopee/callback")]
         public async Task<IActionResult> ShopeeCallback([FromQuery] string code, [FromQuery] string shop_id, [FromQuery] string state)
         {
-            // Bối cảnh 2: Chống CSRF cho Shopee
+            // Bối cảnh 3: Đồng bộ Bảo mật CSRF cho Shopee ngăn Replay Attack
             var expectedState = Request.Cookies["oauth_correlation"];
             if (string.IsNullOrEmpty(state) || state != expectedState)
             {
                 _logger.LogWarning("CSRF validation failed for Shopee Auth Callback.");
-                return BadRequest("Invalid state parameter. CSRF validation failed.");
+                return BadRequest("Missing or mismatched state parameter. CSRF validation failed.");
             }
+
+            try
+            {
+                var decryptedState = _encryptionUtility.Decrypt(state);
+                var userId = User?.Identity?.Name ?? "anonymous_but_needs_auth"; // Match với lúc Generate
+
+                // Kiểm tra xem State này có phải do chính User hiện tại sinh ra không
+                if (string.IsNullOrEmpty(decryptedState) || !decryptedState.StartsWith($"Shopee_{userId}_"))
+                {
+                    _logger.LogWarning("CSRF validation failed for Shopee Auth Callback (Forged State or UserId mismatch).");
+                    return BadRequest("Invalid state parameter ownership. CSRF validation failed.");
+                }
+            }
+            catch
+            {
+                _logger.LogWarning("CSRF validation failed for Shopee Auth Callback (Decryption Error).");
+                return BadRequest("Invalid state parameter signature. CSRF validation failed.");
+            }
+
+            // Bối cảnh 3: Xóa Cookie đi để chống dùng lại (Replay Attack)
+            Response.Cookies.Delete("oauth_correlation");
 
             _logger.LogInformation($"Received Shopee Auth Callback: code={code}, shop_id={shop_id}");
 

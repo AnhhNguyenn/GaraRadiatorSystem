@@ -25,7 +25,7 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
         }
 
         [HttpPost("pos")]
-        public async Task<ActionResult<OrderDto>> CreatePOSOrder([FromBody] CreatePOSOrderDto createDto)
+        public async Task<ActionResult<OrderDto>> CreatePOSOrder([FromBody] CreatePOSOrderDto createDto, System.Threading.CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -34,7 +34,7 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
 
             try
             {
-                var order = await _orderService.CreatePOSOrderAsync(createDto);
+                var order = await _orderService.CreatePOSOrderAsync(createDto, cancellationToken);
                 return Ok(order);
             }
             catch (System.Exception ex)

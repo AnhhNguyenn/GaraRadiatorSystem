@@ -128,6 +128,9 @@ namespace GarageRadiatorERP.Api.Data
 
             builder.Entity<OnlineOrderDetails>().HasIndex(o => o.PlatformOrderId).IsUnique();
 
+            // Bối cảnh 4: Ngăn chặn nhân bản Store khi có Race Condition
+            builder.Entity<PlatformStore>().HasIndex(s => new { s.PlatformName, s.ShopId }).IsUnique();
+
             // Fix Lỗi 52: Soft Delete Query Filter
             builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
