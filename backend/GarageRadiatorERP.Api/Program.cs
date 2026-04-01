@@ -113,6 +113,13 @@ if (!string.IsNullOrEmpty(redisConnectionString))
     // Commented out to avoid compile error without package, but the structure is here for DevOps.
 }
 
+// Bối cảnh 4 (Phần 2): Fail-fast nếu thiếu biến môi trường cấu hình Secret
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtSecretKey) || jwtSecretKey.Length < 32)
+{
+    throw new InvalidOperationException("CRITICAL SECURITY ERROR: JWT Secret Key is missing or too short! Server halted.");
+}
+
 // Thêm Authentication/Authorization cơ bản để không bị crash khi gặp [Authorize] (Lỗi 28)
 builder.Services.AddAuthentication(options =>
 {
@@ -127,7 +134,7 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"] ?? "default_super_secret_key_1234567890_min_32_bytes_long!"))
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtSecretKey))
     };
 });
 builder.Services.AddAuthorization();

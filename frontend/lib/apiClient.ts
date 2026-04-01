@@ -41,6 +41,12 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     headers.set('Content-Type', 'application/json');
   }
 
+  // Bối cảnh 5: Chặn từ trứng nước các Request SSR không có token để tránh tốn tài nguyên
+  // Nếu token rỗng, ném Exception Client-side hoặc SSR log thẳng để Dev biết truyền CustomToken
+  if (!token) {
+     throw new Error("UNAUTHORIZED_CLIENT: No access token found. If calling via Server Component (SSR), ensure you pass `customToken` extracted from next/headers cookies.");
+  }
+
   // Fix Gọi API không cần xác thực (Lỗi 51/16)
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

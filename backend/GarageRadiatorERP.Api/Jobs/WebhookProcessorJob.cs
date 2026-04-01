@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,43 +25,81 @@ namespace GarageRadiatorERP.Api.Jobs
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("🚀 Kích hoạt Job Nền: Webhook Processor đang chờ tin nhắn...");
+            _logger.LogInformation("🚀 Kích hoạt Job Nền: Database Webhook Processor Worker.");
 
-            // Sửa Webhook Queue rủi ro Thread Pool Exhaustion bằng SemaphoreSlim (Max 50 concurrent)
-            var semaphore = new SemaphoreSlim(50);
+            var semaphore = new SemaphoreSlim(20); // Scale concurrent worker an toàn
 
-            await foreach (var message in _queue.DequeueAsync(stoppingToken))
+            while (!stoppingToken.IsCancellationRequested)
             {
-                await semaphore.WaitAsync(stoppingToken);
-
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
-                    {
-                        using (var scope = _scopeFactory.CreateScope())
-                        {
-                            var platformService = scope.ServiceProvider.GetRequiredService<IPlatformService>();
+                    using var scope = _scopeFactory.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Data.AppDbContext>();
 
-                            if (message.Platform == "Shopee")
-                            {
-                                await platformService.ProcessShopeeWebhookAsync(message.Payload);
-                            }
-                            else if (message.Platform == "TikTok")
-                            {
-                                await platformService.ProcessTikTokWebhookAsync(message.Payload);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
+                    // Bối cảnh 3 (Phần 2): Kéo Pending từ bảng PlatformPayloads để xử lý thay vì Channel RAM
+                    var pendingWebhooks = await dbContext.PlatformPayloads
+                        .Where(p => p.Status == "Pending")
+                        .OrderBy(p => p.CreatedAt)
+                        .Take(100)
+                        .ToListAsync(stoppingToken);
+
+                    if (pendingWebhooks.Count == 0)
                     {
-                        // TODO: Implement Dead-Letter Queue (DLQ) here in production (Lỗi 46)
-                        _logger.LogError(ex, "Lỗi khi xử lý hàng đợi Webhook từ {Platform}. Payload: {Payload}", message.Platform, message.Payload);
+                        await Task.Delay(5000, stoppingToken); // Chờ 5s nếu không có webhook mới
+                        continue;
                     }
-                    finally
+
+                    var tasks = new System.Collections.Generic.List<Task>();
+
+                    foreach (var evt in pendingWebhooks)
                     {
-                        semaphore.Release();
+                        await semaphore.WaitAsync(stoppingToken);
+                        evt.Status = "Processing"; // Lock row
+                        await dbContext.SaveChangesAsync(stoppingToken);
+
+                        tasks.Add(Task.Run(async () =>
+                        {
+                            using var innerScope = _scopeFactory.CreateScope();
+                            var innerDb = innerScope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Data.AppDbContext>();
+                            var platformService = innerScope.ServiceProvider.GetRequiredService<IPlatformService>();
+
+                            var webhookToProcess = await innerDb.PlatformPayloads.FindAsync(new object[] { evt.Id }, stoppingToken);
+                            if (webhookToProcess == null) return;
+
+                            try
+                            {
+                                if (webhookToProcess.Platform == "Shopee")
+                                {
+                                    await platformService.ProcessShopeeWebhookAsync(webhookToProcess.PayloadJson);
+                                }
+                                else if (webhookToProcess.Platform == "TikTok")
+                                {
+                                    await platformService.ProcessTikTokWebhookAsync(webhookToProcess.PayloadJson);
+                                }
+
+                                webhookToProcess.Status = "Completed";
+                            }
+                            catch (Exception ex)
+                            {
+                                webhookToProcess.Status = "Failed";
+                                webhookToProcess.ErrorMessage = ex.Message;
+                                _logger.LogError(ex, "Lỗi khi xử lý hàng đợi Webhook từ {Platform}. Id: {Id}", webhookToProcess.Platform, webhookToProcess.Id);
+                            }
+                            finally
+                            {
+                                await innerDb.SaveChangesAsync(stoppingToken);
+                                semaphore.Release();
+                            }
+                        }, stoppingToken));
                     }
-                }, stoppingToken);
+
+                    await Task.WhenAll(tasks);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Fatal Error in WebhookProcessorJob Worker loop");
+                    await Task.Delay(5000, stoppingToken);
+                }
             }
         }
     }

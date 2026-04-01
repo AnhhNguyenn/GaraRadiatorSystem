@@ -98,31 +98,24 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     await _context.SaveChangesAsync();
                 }
 
-                // Giả lập lấy token từ API thật thay vì tự gán (Lỗi 33 / 45)
-                var simulatedApiExpiresIn = 86400; // API trả về sống 1 ngày (VD)
+                // Bối cảnh 2 (Phần 2): Mất tiền thật vì Mock Code còn kẹt lại
+                // Xóa toàn bộ giả lập lưu token rác. Sẵn sàng tích hợp HttpClient thật đổi Token.
+                // TODO: Triển khai HttpClient call tới Shopee OpenAPI 2.0 để lấy accessToken thật
+                var realApiUrl = $"https://partner.shopeemobile.com/api/v2/auth/token/get";
+                _logger.LogInformation($"[TODO] Making HTTP POST to {realApiUrl} to exchange code: {code} for ShopId: {shop_id}");
 
-                var token = new PlatformToken
-                {
-                    StoreId = store.Id,
-                    AccessToken = _encryptionUtility.Encrypt($"shopee_access_mock_{Guid.NewGuid()}"),
-                    RefreshToken = _encryptionUtility.Encrypt($"shopee_refresh_mock_{Guid.NewGuid()}"),
-                    ExpiresAt = DateTime.UtcNow.AddSeconds(simulatedApiExpiresIn), // Sửa hardcode AddDays(7) mù quáng
-                    UpdatedAt = DateTime.UtcNow
-                };
+                // Ở Production, chỗ này sẽ là _httpClient.PostAsync(...) và parse response
+                // Hiện tại chặn không lưu bất kỳ token giả nào vào DB để tránh BackgroundJob bị crash 401 khi chạy thật.
+                throw new NotImplementedException("Shopee OAuth Token Exchange is not implemented yet. Do not save mock tokens in Production.");
 
-                // Remove old tokens
-                var oldTokens = await _context.PlatformTokens.Where(t => t.StoreId == store.Id).ToListAsync();
-                _context.PlatformTokens.RemoveRange(oldTokens);
-
-                _context.PlatformTokens.Add(token);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                var frontendUrl = _configuration["FrontendUrl"];
-                if (string.IsNullOrEmpty(frontendUrl))
-                    return BadRequest("Frontend URL configuration missing"); // Fix Fallback localhost ngớ ngẩn (Lỗi 55)
-
-                return Redirect($"{frontendUrl}/settings?auth_success=shopee&shop_id={shop_id}");
+                // var frontendUrl = _configuration["FrontendUrl"];
+                // if (string.IsNullOrEmpty(frontendUrl)) return BadRequest("Frontend URL configuration missing");
+                // return Redirect($"{frontendUrl}/settings?auth_success=shopee&shop_id={shop_id}");
+            }
+            catch (NotImplementedException ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(501, new { message = ex.Message });
             }
             catch (Exception)
             {
@@ -187,30 +180,22 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     await _context.SaveChangesAsync();
                 }
 
-                // Tương tự, giả lập API Response
-                var simulatedApiExpiresIn = 3600; // API trả về 1 tiếng
+                // Bối cảnh 2 (Phần 2): Mất tiền thật vì Mock Code còn kẹt lại (TikTok)
+                // TODO: Triển khai HttpClient call tới TikTok Shop API để lấy AccessToken thật
+                var realApiUrl = $"https://auth.tiktok-shops.com/api/v2/token/get";
+                _logger.LogInformation($"[TODO] Making HTTP POST to {realApiUrl} to exchange code: {auth_code}");
 
-                var token = new PlatformToken
-                {
-                    StoreId = store.Id,
-                    AccessToken = _encryptionUtility.Encrypt($"tiktok_access_mock_{Guid.NewGuid()}"),
-                    RefreshToken = _encryptionUtility.Encrypt($"tiktok_refresh_mock_{Guid.NewGuid()}"),
-                    ExpiresAt = DateTime.UtcNow.AddSeconds(simulatedApiExpiresIn), // Sửa hardcode
-                    UpdatedAt = DateTime.UtcNow
-                };
+                // Không lưu token rác. Phải có tích hợp HTTP thật trước khi release tính năng này.
+                throw new NotImplementedException("TikTok OAuth Token Exchange is not implemented yet. Do not save mock tokens in Production.");
 
-                var oldTokens = await _context.PlatformTokens.Where(t => t.StoreId == store.Id).ToListAsync();
-                _context.PlatformTokens.RemoveRange(oldTokens);
-
-                _context.PlatformTokens.Add(token);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                var frontendUrl = _configuration["FrontendUrl"];
-                if (string.IsNullOrEmpty(frontendUrl))
-                    return BadRequest("Frontend URL configuration missing"); // Lỗi 55
-
-                return Redirect($"{frontendUrl}/settings?auth_success=tiktok");
+                // var frontendUrl = _configuration["FrontendUrl"];
+                // if (string.IsNullOrEmpty(frontendUrl)) return BadRequest("Frontend URL configuration missing");
+                // return Redirect($"{frontendUrl}/settings?auth_success=tiktok");
+            }
+            catch (NotImplementedException ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(501, new { message = ex.Message });
             }
             catch (Exception)
             {

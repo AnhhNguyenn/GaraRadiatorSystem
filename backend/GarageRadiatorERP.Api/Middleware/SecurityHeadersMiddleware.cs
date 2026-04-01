@@ -25,9 +25,10 @@ namespace GarageRadiatorERP.Api.Middleware
 
             // Strict-Transport-Security (HSTS): Forced HTTPS
             // Lỗi 10: Xóa append HSTS bị đụng độ ở Program.cs. Dùng index an toàn.
+            // Bối cảnh 4 (Phần 2): Bỏ cờ includeSubDomains và preload tránh tự sát chặn nội bộ.
             if (context.Request.IsHttps)
             {
-                context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
+                context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";
             }
 
             // Remove highly exposing headers (Server removed via Kestrel options instead)
