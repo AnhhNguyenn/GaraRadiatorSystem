@@ -14,7 +14,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
     public interface IOrderService
     {
         Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
-        Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto);
+        Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class OrderService : IOrderService
@@ -51,11 +51,11 @@ namespace GarageRadiatorERP.Api.Services.Orders
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>(data, totalCount, page, limit);
         }
 
-        public async Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto)
+        public async Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, System.Threading.CancellationToken cancellationToken = default)
         {
             if (dto.CustomerId.HasValue)
             {
-                bool customerExists = await _context.Customers.AnyAsync(c => c.Id == dto.CustomerId.Value);
+                bool customerExists = await _context.Customers.AnyAsync(c => c.Id == dto.CustomerId.Value, cancellationToken);
                 if (!customerExists)
                 {
                     throw new ArgumentException("Khách hàng không tồn tại."); // Fix Crash POS CustomerId (Lỗi 16/42)
@@ -69,7 +69,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
             for (int retry = 0; retry < maxRetries; retry++)
             {
                 // Dùng Database Transaction (Lỗi 11)
-                using var transactionDbContext = await _context.Database.BeginTransactionAsync();
+                using var transactionDbContext = await _context.Database.BeginTransactionAsync(cancellationToken);
                 var notificationsToSend = new List<object>();
 
                 // Lỗi 61: Memory State Mutation khi Retry
@@ -77,12 +77,23 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 var allBatches = await _context.InventoryBatches
                     .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
                     .OrderBy(b => b.ImportDate)
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
-                // Nhóm cấu hình MinStockLevel (Lỗi 44) và AvgCost (Lỗi 9)
+                // Nhóm cấu hình MinStockLevel (Lỗi 44)
                 var products = await _context.Products
                     .Where(p => productIds.Contains(p.Id))
-                    .ToDictionaryAsync(p => p.Id);
+                    .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+                // Bối cảnh 2: Lấy giá vốn gần nhất Lịch sử bất kể tồn kho (để đề phòng kho hết sạch hàng)
+                var historicalCosts = await _context.InventoryBatches
+                    .Where(b => productIds.Contains(b.ProductId))
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new
+                    {
+                        ProductId = g.Key,
+                        LatestCost = g.OrderByDescending(x => x.ImportDate).Select(x => x.CostPrice).FirstOrDefault()
+                    })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.LatestCost, cancellationToken);
 
                 try
                 {
@@ -204,14 +215,14 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     order.Profit = totalAmount - totalCost;
 
                     _context.Orders.Add(order);
-                    await _context.SaveChangesAsync();
-                    await transactionDbContext.CommitAsync();
+                    await _context.SaveChangesAsync(cancellationToken);
+                    await transactionDbContext.CommitAsync(cancellationToken);
 
                     // Send Notifications after Commit (Lỗi 43)
                     foreach (var notif in notificationsToSend)
                     {
                         // Gửi đích danh cho Group InventoryAdmins thay vì Clients.All (Lỗi 42)
-                        await _hubContext.Clients.Group("InventoryAdmins").SendAsync("ReceiveNotification", notif);
+                        await _hubContext.Clients.Group("InventoryAdmins").SendAsync("ReceiveNotification", notif, cancellationToken: cancellationToken);
                     }
 
                     return new OrderDto
@@ -226,7 +237,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    await transactionDbContext.RollbackAsync();
+                    await transactionDbContext.RollbackAsync(cancellationToken);
                     if (retry == maxRetries - 1)
                         throw new Exception("Quá nhiều giao dịch đồng thời, vui lòng thử lại sau (Concurrency Conflict).");
 
@@ -236,7 +247,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 }
                 catch (Exception)
                 {
-                    await transactionDbContext.RollbackAsync();
+                    await transactionDbContext.RollbackAsync(cancellationToken);
                     throw;
                 }
             }
