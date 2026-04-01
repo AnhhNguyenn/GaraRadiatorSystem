@@ -56,7 +56,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
 
                     if (!string.IsNullOrEmpty(orderSn))
                     {
-                        await UpsertOnlineOrderAsync("Shopee", orderSn, status);
+                        await UpsertOnlineOrderAsync("Shopee", orderSn, status ?? "Pending");
                     }
                 }
                 else if (root.TryGetProperty("message", out var msgProp) && root.TryGetProperty("buyer_id", out var buyerIdProp))
@@ -85,7 +85,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
 
                     if (!string.IsNullOrEmpty(orderId))
                     {
-                        await UpsertOnlineOrderAsync("TikTok", orderId, status);
+                        await UpsertOnlineOrderAsync("TikTok", orderId, status ?? "Pending");
                     }
                 }
                 else if (root.TryGetProperty("message", out var msgProp) && root.TryGetProperty("buyer_id", out var buyerIdProp))

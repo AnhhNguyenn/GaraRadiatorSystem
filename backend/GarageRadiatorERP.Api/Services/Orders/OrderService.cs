@@ -94,6 +94,14 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     .Where(p => productIds.Contains(p.Id))
                     .ToDictionaryAsync(p => p.Id, cancellationToken);
 
+                // Fix Lỗ hổng IDOR: Chặn nhân viên hack POST request truyền mã hàng của Gara khác.
+                // Do Query Filter đã lọc products theo _tenantId, nếu số lượng trả về ít hơn số lượng IDs Client gửi lên,
+                // chắc chắn có mã hàng bịa đặt hoặc thuộc Gara khác.
+                if (products.Count != productIds.Count)
+                {
+                    throw new UnauthorizedAccessException("Phát hiện mã sản phẩm không hợp lệ hoặc không thuộc quyền sở hữu!");
+                }
+
                 // Bối cảnh 2: Lấy giá vốn gần nhất Lịch sử bất kể tồn kho (để đề phòng kho hết sạch hàng)
                 var historicalCosts = await _context.InventoryBatches
                     .Where(b => productIds.Contains(b.ProductId))

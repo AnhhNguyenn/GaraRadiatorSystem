@@ -41,6 +41,7 @@ namespace GarageRadiatorERP.Api.Jobs
                         SET [Status] = 'Processing'
                         OUTPUT INSERTED.*
                         WHERE [Status] = 'Pending'
+                           OR ([Status] = 'Processing' AND [CreatedAt] < DATEADD(minute, -10, GETUTCDATE()))
                     ";
 
                     var pendingWebhooks = await dbContext.PlatformPayloads
