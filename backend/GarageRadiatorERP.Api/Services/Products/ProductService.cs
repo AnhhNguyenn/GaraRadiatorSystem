@@ -11,9 +11,9 @@ namespace GarageRadiatorERP.Api.Services.Products
 {
     public interface IProductService
     {
-        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default);
-        Task<ProductDto?> GetProductByIdAsync(Guid id, global::System.Threading.CancellationToken cancellationToken = default);
-        Task<ProductDto> CreateProductAsync(CreateProductDto createDto, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<ProductDto?> GetProductByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default);
+        Task<ProductDto> CreateProductAsync(CreateProductDto createDto, System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class ProductService : IProductService
@@ -25,8 +25,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             _context = context;
         }
 
-
-        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>> GetAllProductsAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
             var query = _context.Products.Include(p => p.Category);
 
@@ -54,8 +53,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>(data, totalCount, page, limit);
         }
 
-
-        public async Task<ProductDto?> GetProductByIdAsync(Guid id, global::System.Threading.CancellationToken cancellationToken = default)
+        public async Task<ProductDto?> GetProductByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default)
         {
             var p = await _context.Products
                 .Include(p => p.Category)
@@ -78,8 +76,7 @@ namespace GarageRadiatorERP.Api.Services.Products
             };
         }
 
-
-        public async Task<ProductDto> CreateProductAsync(CreateProductDto createDto, global::System.Threading.CancellationToken cancellationToken = default)
+        public async Task<ProductDto> CreateProductAsync(CreateProductDto createDto, System.Threading.CancellationToken cancellationToken = default)
         {
             var product = new Product
             {

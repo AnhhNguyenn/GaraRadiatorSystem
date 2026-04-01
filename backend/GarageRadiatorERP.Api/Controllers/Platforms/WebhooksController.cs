@@ -23,10 +23,9 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
             var payloadJson = await reader.ReadToEndAsync();
 
-            // Đã fix lỗi 2 phần 5: Không gọi đồng bộ. Phải đẩy vào DB Queue
-            await _webhookQueueService.QueueWebhookAsync("Shopee", payloadJson);
+            await _platformService.ProcessShopeeWebhookAsync(payloadJson);
 
-            return Ok(new { success = true });
+            return Ok();
         }
 
         [HttpPost("tiktok")]

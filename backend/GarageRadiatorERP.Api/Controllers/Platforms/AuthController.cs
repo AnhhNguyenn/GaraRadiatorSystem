@@ -28,11 +28,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         }
 
         // Bối cảnh 2: Endpoint cấp State chống Login CSRF có gắn User ID
-
         // (Trong môi trường thật, Endpoint này cần [Authorize])
-
-        [Microsoft.AspNetCore.Authorization.Authorize]
-
         [HttpGet("generate-oauth-url/{platform}")]
         public IActionResult GenerateOAuthUrl(string platform)
         {

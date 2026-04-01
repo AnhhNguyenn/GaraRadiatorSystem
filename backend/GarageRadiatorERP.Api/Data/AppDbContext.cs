@@ -141,32 +141,6 @@ namespace GarageRadiatorERP.Api.Data
             builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
             builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
 
-
-
-            // Cấu hình Global Query Filter cho Multi-Tenant (Bảo vệ dữ liệu chéo Gara)
-            foreach (var entityType in builder.Model.GetEntityTypes())
-            {
-                if (typeof(GarageRadiatorERP.Api.Models.System.ITenantEntity).IsAssignableFrom(entityType.ClrType))
-                {
-                    var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
-                    var tenantProperty = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
-
-                    var tenantIdValue = System.Linq.Expressions.Expression.Field(
-                        System.Linq.Expressions.Expression.Constant(this),
-                        typeof(AppDbContext).GetField("_currentTenantId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    );
-
-                    // e.TenantId == _currentTenantId.Value
-                    var condition = System.Linq.Expressions.Expression.Equal(tenantProperty, System.Linq.Expressions.Expression.Property(tenantIdValue, "Value"));
-
-                    // Build expression: e => e.TenantId == _currentTenantId.Value
-                    var lambda = System.Linq.Expressions.Expression.Lambda(condition, parameter);
-
-                    builder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-                }
-            }
-
-
             // Bối cảnh 1: Kích hoạt Concurrency Check thực sự cho kho
             builder.Entity<InventoryBatch>().Property(b => b.RowVersion).IsRowVersion();
         }
@@ -174,62 +148,17 @@ namespace GarageRadiatorERP.Api.Data
         public override int SaveChanges()
         {
             ApplySoftDelete();
-
-
-            GenerateAuditLogs();
-
             return base.SaveChanges();
         }
 
         public override System.Threading.Tasks.Task<int> SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default)
         {
             ApplySoftDelete();
-            GenerateAuditLogs();
             return base.SaveChangesAsync(cancellationToken);
-        }
-
-        private void GenerateAuditLogs()
-        {
-            // Bối cảnh 2: Thiếu Audit Trail (Nhật ký thao tác) cho ERP
-            ChangeTracker.DetectChanges();
-            var entries = ChangeTracker.Entries()
-                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
-                .Where(e => !(e.Entity is AuditLog)) // Tránh đệ quy
-                .ToList();
-
-            foreach (var entry in entries)
-            {
-                var auditLog = new AuditLog
-                {
-                    TableName = entry.Entity.GetType().Name,
-                    Action = entry.State.ToString(),
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                // Lưu các trường dữ liệu JSON cho các thực thể quan trọng nếu cần
-                if (entry.State == EntityState.Modified)
-                {
-                    // Lấy ra tên các Property bị thay đổi
-                    var modifiedProperties = entry.Properties.Where(p => p.IsModified).Select(p => p.Metadata.Name).ToList();
-                    auditLog.OldData = $"Modified: {string.Join(", ", modifiedProperties)}";
-                }
-
-                AuditLogs.Add(auditLog);
-            }
         }
 
         private void ApplySoftDelete()
         {
-            // Tự động gán TenantId khi tạo mới thực thể (Multi-Tenancy Insert)
-            foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ITenantEntity>())
-            {
-                if (entry.State == EntityState.Added && _currentTenantId.HasValue)
-                {
-                    entry.Entity.TenantId = _currentTenantId.Value;
-                }
-            }
-
-
             foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ISoftDeletable>())
             {
                 if (entry.State == EntityState.Deleted)

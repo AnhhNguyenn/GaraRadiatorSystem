@@ -13,8 +13,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
 {
     public interface IOrderService
     {
-        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default);
-        Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, global::System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, System.Threading.CancellationToken cancellationToken = default);
     }
 
     public class OrderService : IOrderService
@@ -28,8 +28,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
             _hubContext = hubContext;
         }
 
-
-        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
             var query = _context.Orders;
             int totalCount = await query.CountAsync(cancellationToken);
@@ -52,8 +51,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
             return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>(data, totalCount, page, limit);
         }
 
-
-        public async Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, global::System.Threading.CancellationToken cancellationToken = default)
+        public async Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, System.Threading.CancellationToken cancellationToken = default)
         {
             if (dto.CustomerId.HasValue)
             {
@@ -131,11 +129,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         // Lúc này mới bất đắc dĩ fallback về 70% giá bán lẻ để không bị âm Profit
                         if (fallbackCostPrice == 0 && products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null)
                         {
-
                              fallbackCostPrice = productObj.Price * 0.7m;
-
-                            fallbackCostPrice = productObj.Price * 0.7m;
-
                         }
 
                         foreach (var batch in batchesToDeduct)
