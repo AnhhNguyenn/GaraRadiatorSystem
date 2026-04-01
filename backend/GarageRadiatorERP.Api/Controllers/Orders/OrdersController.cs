@@ -18,7 +18,7 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<ActionResult<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>>> GetOrders([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
             var result = await _orderService.GetOrdersAsync(page, limit, cancellationToken);
             return Ok(result);

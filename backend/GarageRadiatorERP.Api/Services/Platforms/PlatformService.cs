@@ -47,7 +47,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
-                
+
                 // Assuming standard Shopee push: {"data": {"ordersn": "123", "status": "READY_TO_SHIP"}} // Or Chat: {"buyer_id": "123", "message": "Hi"}
                 if (root.TryGetProperty("data", out var data) && data.TryGetProperty("ordersn", out var orderSnProp))
                 {
@@ -76,7 +76,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
-                
+
                 // Assuming TikTok push: {"data": {"order_id": "123", "order_status": "AWAITING_SHIPMENT"}}
                 if (root.TryGetProperty("data", out var data) && data.TryGetProperty("order_id", out var orderIdProp))
                 {
@@ -132,11 +132,11 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 await _context.SaveChangesAsync();
 
                 // Broadcast Realtime Notification
-                await _hubContext.Clients.All.SendAsync("ReceiveNotification", new 
-                { 
-                    message = $"Có đơn hàng mới từ {platform}! Mã đơn: {orderId}", 
-                    type = "success", 
-                    time = DateTime.UtcNow 
+                await _hubContext.Clients.All.SendAsync("ReceiveNotification", new
+                {
+                    message = $"Có đơn hàng mới từ {platform}! Mã đơn: {orderId}",
+                    type = "success",
+                    time = DateTime.UtcNow
                 });
             }
         }
@@ -170,27 +170,27 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             };
 
             _context.PlatformMessages.Add(message);
-            
+
             conversation.LastMessage = messageText;
             conversation.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
             // Broadcast real-time to UI
-            await _hubContext.Clients.All.SendAsync("ReceiveNewMessage", new 
-            { 
+            await _hubContext.Clients.All.SendAsync("ReceiveNewMessage", new
+            {
                 conversationId = conversation.Id,
                 platform = platform,
                 buyerId = buyerId,
                 message = messageText,
-                time = DateTime.UtcNow 
+                time = DateTime.UtcNow
             });
 
-            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new 
-            { 
-                message = $"💬 Tin nhắn mới từ {platform} ({buyerId}): {messageText}", 
-                type = "info", 
-                time = DateTime.UtcNow 
+            await _hubContext.Clients.All.SendAsync("ReceiveNotification", new
+            {
+                message = $"💬 Tin nhắn mới từ {platform} ({buyerId}): {messageText}",
+                type = "info",
+                time = DateTime.UtcNow
             });
         }
     }

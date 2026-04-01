@@ -16,10 +16,10 @@ namespace GarageRadiatorERP.Api.Middleware
         {
             // X-Frame-Options: Prevent Clickjacking
             context.Response.Headers["X-Frame-Options"] = "DENY";
-            
+
             // X-XSS-Protection: Cross-site scripting (XSS) filter
             context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-            
+
             // X-Content-Type-Options: Prevent MIME-sniffing
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
 

@@ -87,7 +87,7 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public ICollection<InventoryTransaction> Transactions { get; set; } = new List<InventoryTransaction>();
     }
 
-    public class InventoryTransaction
+    public class InventoryTransaction : GarageRadiatorERP.Api.Models.System.ISoftDeletable
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -106,11 +106,13 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public string Type { get; set; } = string.Empty; // import, sale, adjustment, return, damage
 
         public int QuantityChange { get; set; } // Dấu + là nhập, dấu - là xuất
-        
+
         [StringLength(255)]
         public string? ReferenceDocument { get; set; } // VD: ID đơn hàng Shopee, ID Phiếu trả hàng
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public bool IsDeleted { get; set; } = false;
     }
 
     public class Supplier
@@ -140,7 +142,7 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public Supplier Supplier { get; set; } = null!;
 
         public DateTime PurchaseDate { get; set; } = DateTime.UtcNow;
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalCost { get; set; }
 
@@ -166,7 +168,7 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public InventoryBatch? InventoryBatch { get; set; }
 
         public int Quantity { get; set; }
-        
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal CostPrice { get; set; }
     }

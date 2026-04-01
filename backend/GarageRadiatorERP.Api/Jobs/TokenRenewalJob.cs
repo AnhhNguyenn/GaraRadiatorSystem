@@ -31,7 +31,7 @@ namespace GarageRadiatorERP.Api.Jobs
                 try
                 {
                     _logger.LogInformation("🔄 Đang chạy Job kiểm tra và gia hạn Token lúc: {Time}", DateTimeOffset.Now);
-                    
+
                     using (var scope = _scopeFactory.CreateScope())
                     {
                         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -47,7 +47,7 @@ namespace GarageRadiatorERP.Api.Jobs
                         foreach (var token in expTokens)
                         {
                             _logger.LogInformation($"Renewing token for store {token.Store.StoreName} ({token.Store.PlatformName})");
-                            
+
                             // Mocking API call to Shopee/TikTok to get new token
                             // In a real scenario, you decrypt the old token first, make the request, and encrypt the new one.
                             token.AccessToken = encryptionUtility.Encrypt($"{token.Store.PlatformName.ToLower()}_access_renew_{Guid.NewGuid()}");

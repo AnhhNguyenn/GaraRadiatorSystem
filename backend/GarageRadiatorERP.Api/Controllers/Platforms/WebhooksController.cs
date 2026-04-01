@@ -22,9 +22,9 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         {
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
             var payloadJson = await reader.ReadToEndAsync();
-            
+
             await _platformService.ProcessShopeeWebhookAsync(payloadJson);
-            
+
             return Ok();
         }
 

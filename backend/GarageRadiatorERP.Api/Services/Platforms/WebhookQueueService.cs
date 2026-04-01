@@ -10,7 +10,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
         ValueTask QueueWebhookAsync(string platform, string payload);
         IAsyncEnumerable<WebhookMessage> DequeueAsync(CancellationToken cancellationToken);
     }
-    
+
     public record WebhookMessage(string Platform, string Payload);
 
     public class WebhookQueueService : IWebhookQueueService

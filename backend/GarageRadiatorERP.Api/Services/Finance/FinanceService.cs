@@ -11,7 +11,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
 {
     public interface IFinanceService
     {
-        Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
         Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default);
         Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default);
     }
@@ -25,10 +25,13 @@ namespace GarageRadiatorERP.Api.Services.Finance
             _context = context;
         }
 
-        public async Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>> GetAllExpensesAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
             // Thêm phân trang (Lỗi 50) và CancellationToken (Lỗi 24)
-            return await _context.Expenses
+            var query = _context.Expenses;
+            int totalCount = await query.CountAsync(cancellationToken);
+
+            var data = await query
                 .OrderByDescending(e => e.Date)
                 .Skip((page - 1) * limit)
                 .Take(limit)
@@ -41,6 +44,8 @@ namespace GarageRadiatorERP.Api.Services.Finance
                     Note = e.Note
                 })
                 .ToListAsync(cancellationToken);
+
+            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ExpenseDto>(data, totalCount, page, limit);
         }
 
         public async Task<ExpenseDto> CreateExpenseAsync(CreateExpenseDto createDto, System.Threading.CancellationToken cancellationToken = default)
@@ -50,8 +55,8 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 Category = createDto.Category,
                 Amount = createDto.Amount,
                 Note = createDto.Note,
-                // Fix thời gian ghi nhận và timezone (Lỗi 17 / 39)
-                Date = createDto.ExpenseDate ?? GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime()
+                // Fix thời gian ghi nhận (Lỗi 17 / 39)
+                Date = createDto.ExpenseDate ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
             };
 
             _context.Expenses.Add(expense);
@@ -70,17 +75,18 @@ namespace GarageRadiatorERP.Api.Services.Finance
         public async Task<ProfitReportDto> GetProfitReportAsync(DateTime startDate, DateTime endDate, System.Threading.CancellationToken cancellationToken = default)
         {
             // Fix Kéo sập Server (Memory Bomb) (Lỗi 19 / 36) - Tính tổng trực tiếp bằng DB
+            // Fix Lỗi 57: Thảm họa SumAsync trên tập rỗng gây crash 500
             decimal totalRevenue = await _context.Orders
                 .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
-                .SumAsync(o => o.TotalAmount, cancellationToken);
+                .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0;
 
             decimal totalCost = await _context.Orders
                 .Where(o => o.OrderDate >= startDate && o.OrderDate <= endDate)
-                .SumAsync(o => o.TotalCost, cancellationToken);
+                .SumAsync(o => (decimal?)o.TotalCost, cancellationToken) ?? 0;
 
             decimal totalExpense = await _context.Expenses
                 .Where(e => e.Date >= startDate && e.Date <= endDate)
-                .SumAsync(e => e.Amount, cancellationToken);
+                .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0;
 
             return new ProfitReportDto
             {

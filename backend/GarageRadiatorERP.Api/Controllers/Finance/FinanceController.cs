@@ -17,14 +17,15 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         [HttpGet("profit-report")]
         public async Task<IActionResult> GetProfitReport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken cancellationToken)
         {
-            var localNow = GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime();
-            var start = startDate ?? new DateTime(localNow.Year, localNow.Month, 1);
-            var end = endDate ?? localNow;
+            // Trả lại logic Timezone chuẩn (Lỗi 3) - Lưu và xử lý UTC, hiển thị do Frontend lo
+            var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var end = endDate ?? DateTime.UtcNow;
 
             var result = await _financeService.GetProfitReportAsync(start, end, cancellationToken);
 
             // Gắn thêm Period format cho Front-end dễ hiển thị
-            var response = new {
+            var response = new
+            {
                 Revenue = result.TotalRevenue,
                 CostOfGoodsSold = result.TotalCost,
                 GrossProfit = result.TotalRevenue - result.TotalCost,

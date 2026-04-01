@@ -53,7 +53,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             };
 
             _context.PlatformMessages.Add(message);
-            
+
             conversation.LastMessage = messageText;
             conversation.UpdatedAt = DateTime.UtcNow;
 

@@ -8,7 +8,7 @@ namespace GarageRadiatorERP.Api.Models.System
     {
         [StringLength(100)]
         public string? FullName { get; set; }
-        
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
@@ -23,7 +23,7 @@ namespace GarageRadiatorERP.Api.Models.System
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public Guid? UserId { get; set; }
-        
+
         [Required]
         [StringLength(100)]
         public string Action { get; set; } = string.Empty;

@@ -13,7 +13,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
 {
     public interface IOrderService
     {
-        Task<IEnumerable<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
+        Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default);
         Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto);
     }
 
@@ -28,9 +28,12 @@ namespace GarageRadiatorERP.Api.Services.Orders
             _hubContext = hubContext;
         }
 
-        public async Task<IEnumerable<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
-            return await _context.Orders
+            var query = _context.Orders;
+            int totalCount = await query.CountAsync(cancellationToken);
+
+            var data = await query
                 .OrderByDescending(o => o.OrderDate)
                 .Skip((page - 1) * limit)
                 .Take(limit)
@@ -44,6 +47,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     Profit = o.Profit
                 })
                 .ToListAsync(cancellationToken);
+
+            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>(data, totalCount, page, limit);
         }
 
         public async Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto)
@@ -84,7 +89,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         Source = OrderSource.POS.ToString(), // Fix Magic Strings (Lỗi 15)
                         Status = OrderStatus.Completed.ToString(),
                         PaymentStatus = Models.Orders.PaymentStatus.Paid.ToString(),
-                        OrderDate = GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime(), // Fix Timezone Múi giờ VN
+                        OrderDate = DateTime.UtcNow, // Lỗi 3: Chuẩn Enterprise dùng UTC lưu DB
                         Notes = dto.Notes
                     };
 
@@ -100,11 +105,24 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         var batchesToDeduct = allBatches.Where(b => b.ProductId == itemDto.ProductId).ToList();
 
                         int qtyToFulfill = itemDto.Quantity;
-                        decimal fallbackCostPrice = products.TryGetValue(itemDto.ProductId, out var p) ? p.Price : 0;
-                        // Cần chiến lược lấy giá vốn tốt hơn, nhưng ở đây dùng tạm Price hoặc average cost thực tế.
-                        // Thử lấy giá vốn từ lô cuối cùng nếu có:
-                        var lastBatchCost = await _context.InventoryBatches.Where(b => b.ProductId == itemDto.ProductId).OrderByDescending(b => b.ImportDate).Select(b => b.CostPrice).FirstOrDefaultAsync();
-                        if (lastBatchCost > 0) fallbackCostPrice = lastBatchCost;
+
+                        // Lỗi 2: Tránh gán giá vốn (Cost) = Giá bán (Price).
+                        // Nếu hết hàng hoàn toàn (không mò được CostPrice in-memory do allBatches rỗng),
+                        // phải dùng fallback. Ở đây gán fallbackCostPrice = Price * 0.7 (Biên lợi nhuận gộp 30%)
+                        // để kế toán không thấy Profit ảo do Cost = 0.
+                        decimal fallbackCostPrice = products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null ? (productObj.Price * 0.7m) : 0;
+
+                        // Thử lấy giá vốn từ lô cuối cùng in-memory nếu có (Lỗi 56 - Tránh N+1 Query lén lút)
+                        var lastBatchCost = allBatches
+                            .Where(b => b.ProductId == itemDto.ProductId)
+                            .OrderByDescending(b => b.ImportDate)
+                            .Select(b => b.CostPrice)
+                            .FirstOrDefault();
+
+                        if (lastBatchCost > 0)
+                        {
+                            fallbackCostPrice = lastBatchCost;
+                        }
 
                         foreach (var batch in batchesToDeduct)
                         {
@@ -112,7 +130,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             if (batch.RemainingQuantity <= 0) continue; // Fix thuật toán trừ ngây thơ âm (Lỗi 12)
 
                             int qtyFromThisBatch = Math.Min(batch.RemainingQuantity, qtyToFulfill);
-                            
+
                             batch.RemainingQuantity -= qtyFromThisBatch;
                             qtyToFulfill -= qtyFromThisBatch;
 
@@ -137,7 +155,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 Type = "sale",
                                 QuantityChange = -qtyFromThisBatch,
                                 ReferenceDocument = "POS Order", // Có thể lưu chuỗi mô tả
-                                CreatedAt = GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime()
+                                CreatedAt = DateTime.UtcNow // Lỗi 3
                             };
                             _context.InventoryTransactions.Add(transaction);
 
@@ -152,10 +170,10 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             {
                                 // Không gửi ngay lập tức để tránh Spam nếu Transaction rollback (Lỗi 43)
                                 notificationsToSend.Add(new
-                                { 
+                                {
                                     message = $"⚠️ Cảnh báo tồn kho: Mã sản phẩm {itemDto.ProductId} sắp hết. Tổng tồn kho hiện tại: {currentTotalStock}.",
-                                    type = "warning", 
-                                    time = GarageRadiatorERP.Api.Utilities.TimeUtility.GetLocalTime()
+                                    type = "warning",
+                                    time = DateTime.UtcNow
                                 });
                             }
                         }
@@ -208,12 +226,10 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     await transactionDbContext.RollbackAsync();
                     if (retry == maxRetries - 1)
                         throw new Exception("Quá nhiều giao dịch đồng thời, vui lòng thử lại sau (Concurrency Conflict).");
-                    
-                    // Reload Data thay vì Clear Tracker xóa mù (Lỗi 25)
-                    foreach (var entry in _context.ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged))
-                    {
-                        await entry.ReloadAsync();
-                    }
+
+                    // Lỗi 56: Rác Tracker tạo đơn hàng nhân bản. Phải Clear vì nếu không các Entity Added (Order, Item) sẽ bị tạo lại nhiều lần.
+                    // ReloadAsync không áp dụng được cho trạng thái Added!
+                    _context.ChangeTracker.Clear();
                 }
                 catch (Exception)
                 {

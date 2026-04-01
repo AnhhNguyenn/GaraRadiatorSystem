@@ -19,7 +19,7 @@ namespace GarageRadiatorERP.Api.Controllers.Products
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<ActionResult<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<ProductDto>>> GetProducts([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
         {
             var products = await _productService.GetAllProductsAsync(page, limit, cancellationToken);
             return Ok(products);
