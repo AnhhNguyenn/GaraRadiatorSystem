@@ -120,22 +120,16 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                         int qtyToFulfill = itemDto.Quantity;
 
-                        // Lỗi 2: Tránh gán giá vốn (Cost) = Giá bán (Price).
-                        // Nếu hết hàng hoàn toàn (không mò được CostPrice in-memory do allBatches rỗng),
-                        // phải dùng fallback. Ở đây gán fallbackCostPrice = Price * 0.7 (Biên lợi nhuận gộp 30%)
-                        // để kế toán không thấy Profit ảo do Cost = 0.
-                        decimal fallbackCostPrice = products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null ? (productObj.Price * 0.7m) : 0;
+                        // Bối cảnh 2 (Phần 2): Tránh gán giá vốn (Cost) = Giá bán (Price).
+                        // Lấy giá trị fallback từ lịch sử lô nhập mới nhất (historicalCosts) trước tiên.
+                        // Đây là query độc lập đã quét toàn bộ lịch sử không quan tâm tồn kho còn hay hết.
+                        decimal fallbackCostPrice = historicalCosts.TryGetValue(itemDto.ProductId, out var hc) && hc > 0 ? hc : 0;
 
-                        // Thử lấy giá vốn từ lô cuối cùng in-memory nếu có (Lỗi 56 - Tránh N+1 Query lén lút)
-                        var lastBatchCost = allBatches
-                            .Where(b => b.ProductId == itemDto.ProductId)
-                            .OrderByDescending(b => b.ImportDate)
-                            .Select(b => b.CostPrice)
-                            .FirstOrDefault();
-
-                        if (lastBatchCost > 0)
+                        // Nếu sản phẩm này hoàn toàn chưa từng được nhập kho bao giờ (historical cost = 0)
+                        // Lúc này mới bất đắc dĩ fallback về 70% giá bán lẻ để không bị âm Profit
+                        if (fallbackCostPrice == 0 && products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null)
                         {
-                            fallbackCostPrice = lastBatchCost;
+                             fallbackCostPrice = productObj.Price * 0.7m;
                         }
 
                         foreach (var batch in batchesToDeduct)
@@ -205,6 +199,20 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 CostPrice = fallbackCostPrice // Giá vốn trung bình/lô cuối thay vì 0
                             };
                             order.Items.Add(backOrderItem);
+
+                            // Bối cảnh 1 (Phần 2): Kế toán chửi vụ bán âm kho - Phải ghi nhận Transaction xuất âm
+                            var negativeTransaction = new InventoryTransaction
+                            {
+                                Order = order, // Entity Framework tự động mapping Khóa ngoại
+                                ProductId = itemDto.ProductId,
+                                Batch = null, // Bán âm thì chưa có lô thực tế
+                                Type = "backorder",
+                                QuantityChange = -qtyToFulfill,
+                                ReferenceDocument = "POS Order (Negative/Backorder)",
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.InventoryTransactions.Add(negativeTransaction);
+
                             totalAmount += (qtyToFulfill * itemDto.UnitPrice);
                             totalCost += (qtyToFulfill * fallbackCostPrice);
                         }

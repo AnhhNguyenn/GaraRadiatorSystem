@@ -15,6 +15,12 @@ namespace GarageRadiatorERP.Api.Models.Platforms
 
         public string PayloadJson { get; set; } = string.Empty;
 
+        [Required]
+        [StringLength(50)]
+        public string Status { get; set; } = "Pending"; // Pending, Completed, Failed
+
+        public string? ErrorMessage { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 

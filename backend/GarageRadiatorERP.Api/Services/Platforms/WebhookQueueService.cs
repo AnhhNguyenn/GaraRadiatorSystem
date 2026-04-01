@@ -1,40 +1,43 @@
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
+using GarageRadiatorERP.Api.Data;
+using GarageRadiatorERP.Api.Models.Platforms;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GarageRadiatorERP.Api.Services.Platforms
 {
     public interface IWebhookQueueService
     {
-        ValueTask QueueWebhookAsync(string platform, string payload);
-        IAsyncEnumerable<WebhookMessage> DequeueAsync(CancellationToken cancellationToken);
+        Task QueueWebhookAsync(string platform, string payload);
     }
-
-    public record WebhookMessage(string Platform, string Payload);
 
     public class WebhookQueueService : IWebhookQueueService
     {
-        private readonly Channel<WebhookMessage> _queue;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public WebhookQueueService()
+        public WebhookQueueService(IServiceScopeFactory scopeFactory)
         {
-            var options = new BoundedChannelOptions(10000)
+            _scopeFactory = scopeFactory;
+        }
+
+        public async Task QueueWebhookAsync(string platform, string payload)
+        {
+            // Bối cảnh 3 (Phần 2): Bỏ In-Memory Channel, Insert Payload thô thẳng xuống DB
+            // Điều này phòng ngừa mất đơn hàng Webhook khi App Pool Recycle hoặc Restart Docker.
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var evt = new PlatformPayload
             {
-                // Fix DropOldest (Lỗi 3)
-                FullMode = BoundedChannelFullMode.Wait
+                Platform = platform,
+                PayloadJson = payload,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
             };
-            _queue = Channel.CreateBounded<WebhookMessage>(options);
-        }
 
-        public async ValueTask QueueWebhookAsync(string platform, string payload)
-        {
-            await _queue.Writer.WriteAsync(new WebhookMessage(platform, payload));
-        }
-
-        public IAsyncEnumerable<WebhookMessage> DequeueAsync(CancellationToken cancellationToken)
-        {
-            return _queue.Reader.ReadAllAsync(cancellationToken);
+            context.PlatformPayloads.Add(evt);
+            await context.SaveChangesAsync();
         }
     }
 }
