@@ -27,6 +27,17 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             _encryptionUtility = encryptionUtility;
         }
 
+        // Endpoint cấp State an toàn (Stateless) cho Frontend khởi tạo OAuth
+        [HttpGet("generate-oauth-url/{platform}")]
+        public IActionResult GenerateOAuthUrl(string platform)
+        {
+            var rawState = $"{platform}_{Guid.NewGuid()}_{DateTime.UtcNow.Ticks}";
+            var encryptedState = _encryptionUtility.Encrypt(rawState);
+
+            // Giả lập trả về URL. Trong thực tế lấy từ Config tùy theo Tiktok/Shopee
+            return Ok(new { url = $"https://{platform.ToLower()}.com/oauth/authorize?client_id=xxx&state={encryptedState}&redirect_uri=xxx" });
+        }
+
         [HttpGet("shopee/callback")]
         public async Task<IActionResult> ShopeeCallback([FromQuery] string code, [FromQuery] string shop_id)
         {
@@ -87,12 +98,27 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("tiktok/callback")]
         public async Task<IActionResult> TikTokCallback([FromQuery] string auth_code, [FromQuery] string state)
         {
-            // Kiểm tra CSRF triệt để (Lỗi 4)
-            var expectedState = Request.Cookies["oauth_state"];
-            if (string.IsNullOrEmpty(state) || state != expectedState)
+            // Fix Lỗi Khóa chết OAuth do SameSite Cookie (Lỗi 4/59)
+            // Thay vì dựa vào Cookie (bị trình duyệt chặn), ta giải mã trực tiếp State được ký (Stateless).
+            if (string.IsNullOrEmpty(state))
             {
-                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback.");
-                return BadRequest("Invalid state parameter. CSRF validation failed.");
+                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Missing State).");
+                return BadRequest("Missing state parameter. CSRF validation failed.");
+            }
+
+            try
+            {
+                var decryptedState = _encryptionUtility.Decrypt(state);
+                if (string.IsNullOrEmpty(decryptedState) || !decryptedState.StartsWith("TikTok_"))
+                {
+                    _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Forged State).");
+                    return BadRequest("Invalid state parameter. CSRF validation failed.");
+                }
+            }
+            catch
+            {
+                _logger.LogWarning("CSRF validation failed for TikTok Auth Callback (Decryption Error).");
+                return BadRequest("Invalid state parameter signature. CSRF validation failed.");
             }
 
             _logger.LogInformation($"Received TikTok Auth Callback: auth_code={auth_code}, state={state}");

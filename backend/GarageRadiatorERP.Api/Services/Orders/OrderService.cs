@@ -64,15 +64,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
             // Gộp danh sách truy vấn Batch để tránh N+1 Query (Lỗi 20) và lỗi Query Mù (Lỗi 13)
             var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
-            var allBatches = await _context.InventoryBatches
-                .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
-                .OrderBy(b => b.ImportDate)
-                .ToListAsync();
-
-            // Nhóm cấu hình MinStockLevel (Lỗi 44) và AvgCost (Lỗi 9)
-            var products = await _context.Products
-                .Where(p => productIds.Contains(p.Id))
-                .ToDictionaryAsync(p => p.Id);
 
             int maxRetries = 3;
             for (int retry = 0; retry < maxRetries; retry++)
@@ -80,6 +71,18 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 // Dùng Database Transaction (Lỗi 11)
                 using var transactionDbContext = await _context.Database.BeginTransactionAsync();
                 var notificationsToSend = new List<object>();
+
+                // Lỗi 61: Memory State Mutation khi Retry
+                // Di chuyển query vào trong vòng lặp để lấy Fresh State từ Database sau khi Rollback.
+                var allBatches = await _context.InventoryBatches
+                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
+                    .OrderBy(b => b.ImportDate)
+                    .ToListAsync();
+
+                // Nhóm cấu hình MinStockLevel (Lỗi 44) và AvgCost (Lỗi 9)
+                var products = await _context.Products
+                    .Where(p => productIds.Contains(p.Id))
+                    .ToDictionaryAsync(p => p.Id);
 
                 try
                 {
