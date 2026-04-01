@@ -18,9 +18,12 @@ namespace GarageRadiatorERP.Api.Hubs
 
             // Tự động Add user vào Group theo Claim (Giả lập đơn giản)
             // Lỗi 42: Phải gửi thông báo tới đích danh Group.
+            var tenantId = Context.User?.FindFirst("TenantId")?.Value;
+            var groupName = string.IsNullOrEmpty(tenantId) ? "InventoryAdmins" : $"InventoryAdmins_{tenantId}";
+
             if (Context.User?.IsInRole("Admin") == true || Context.User?.IsInRole("Manager") == true)
             {
-                await Groups.AddToGroupAsync(Context.ConnectionId, "InventoryAdmins");
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
             }
 
             await Clients.Caller.SendAsync("SystemMessage", "Đã kết nối thành công đến ERP ChatHub!");
@@ -48,7 +51,10 @@ namespace GarageRadiatorERP.Api.Hubs
         public async Task BroadcastNotification(string message, string type = "info")
         {
             // Tránh Spam Clients.All (Lỗi 42)
-            await Clients.Group("InventoryAdmins").SendAsync("ReceiveNotification", new { message, type, time = DateTimeOffset.UtcNow.UtcDateTime });
+            var tenantId = Context.User?.FindFirst("TenantId")?.Value;
+            var groupName = string.IsNullOrEmpty(tenantId) ? "InventoryAdmins" : $"InventoryAdmins_{tenantId}";
+
+            await Clients.Group(groupName).SendAsync("ReceiveNotification", new { message, type, time = DateTimeOffset.UtcNow.UtcDateTime });
         }
     }
 }

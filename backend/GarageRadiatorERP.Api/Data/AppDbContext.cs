@@ -136,10 +136,52 @@ namespace GarageRadiatorERP.Api.Data
             // Bối cảnh 4: Ngăn chặn nhân bản Store khi có Race Condition
             builder.Entity<PlatformStore>().HasIndex(s => new { s.PlatformName, s.ShopId }).IsUnique();
 
-            // Fix Lỗi 52: Soft Delete Query Filter
-            builder.Entity<Order>().HasQueryFilter(x => !x.IsDeleted);
-            builder.Entity<Expense>().HasQueryFilter(x => !x.IsDeleted);
-            builder.Entity<InventoryTransaction>().HasQueryFilter(x => !x.IsDeleted);
+            // Cấu hình Global Query Filter cho Multi-Tenant & Soft Delete
+            foreach (var entityType in builder.Model.GetEntityTypes())
+            {
+                var isSoftDeletable = typeof(GarageRadiatorERP.Api.Models.System.ISoftDeletable).IsAssignableFrom(entityType.ClrType);
+                var isTenantEntity = typeof(GarageRadiatorERP.Api.Models.System.ITenantEntity).IsAssignableFrom(entityType.ClrType);
+
+                if (isSoftDeletable || isTenantEntity)
+                {
+                    var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
+                    System.Linq.Expressions.Expression? condition = null;
+
+                    if (isSoftDeletable)
+                    {
+                        var isDeletedProperty = System.Linq.Expressions.Expression.Property(parameter, "IsDeleted");
+                        condition = System.Linq.Expressions.Expression.Equal(isDeletedProperty, System.Linq.Expressions.Expression.Constant(false));
+                    }
+
+                    if (isTenantEntity)
+                    {
+                        var tenantProperty = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
+                        var tenantIdField = typeof(AppDbContext).GetField("_currentTenantId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (tenantIdField != null)
+                        {
+                            var tenantIdValue = System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression.Constant(this), tenantIdField);
+
+                            // _currentTenantId.HasValue == false || e.TenantId == _currentTenantId.Value
+                            var hasValueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "HasValue");
+                            var valueProp = System.Linq.Expressions.Expression.Property(tenantIdValue, "Value");
+
+                            var noTenantCondition = System.Linq.Expressions.Expression.Equal(hasValueProp, System.Linq.Expressions.Expression.Constant(false));
+                            var matchTenantCondition = System.Linq.Expressions.Expression.Equal(tenantProperty, valueProp);
+
+                            var tenantCondition = System.Linq.Expressions.Expression.OrElse(noTenantCondition, matchTenantCondition);
+
+                            condition = condition == null ? tenantCondition : System.Linq.Expressions.Expression.AndAlso(condition, tenantCondition);
+                        }
+                    }
+
+                    if (condition != null)
+                    {
+                        var lambda = System.Linq.Expressions.Expression.Lambda(condition, parameter);
+                        builder.Entity(entityType.ClrType).HasQueryFilter(lambda);
+                    }
+                }
+            }
+
 
             // Bối cảnh 1: Kích hoạt Concurrency Check thực sự cho kho
             builder.Entity<InventoryBatch>().Property(b => b.RowVersion).IsRowVersion();
@@ -148,17 +190,62 @@ namespace GarageRadiatorERP.Api.Data
         public override int SaveChanges()
         {
             ApplySoftDelete();
+
+
+            GenerateAuditLogs();
+
             return base.SaveChanges();
         }
 
         public override System.Threading.Tasks.Task<int> SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default)
         {
             ApplySoftDelete();
+            GenerateAuditLogs();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void GenerateAuditLogs()
+        {
+            // Bối cảnh 2: Thiếu Audit Trail (Nhật ký thao tác) cho ERP
+            ChangeTracker.DetectChanges();
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
+                .Where(e => !(e.Entity is AuditLog)) // Tránh đệ quy
+                .ToList();
+
+            foreach (var entry in entries)
+            {
+                var auditLog = new AuditLog
+                {
+                    TableName = entry.Entity.GetType().Name,
+                    Action = entry.State.ToString(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Lưu các trường dữ liệu JSON cho các thực thể quan trọng nếu cần
+                if (entry.State == EntityState.Modified)
+                {
+                    // Lấy ra tên các Property bị thay đổi
+                    var modifiedProperties = entry.Properties.Where(p => p.IsModified).Select(p => p.Metadata.Name).ToList();
+                    auditLog.OldData = $"Modified: {string.Join(", ", modifiedProperties)}";
+                }
+
+                AuditLogs.Add(auditLog);
+            }
         }
 
         private void ApplySoftDelete()
         {
+            // Tự động gán TenantId khi tạo mới thực thể (Multi-Tenancy Insert)
+            foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ITenantEntity>())
+            {
+                if (entry.State == EntityState.Added && _currentTenantId.HasValue)
+                {
+                    entry.Entity.TenantId = _currentTenantId.Value;
+                }
+            }
+
+
             foreach (var entry in ChangeTracker.Entries<GarageRadiatorERP.Api.Models.System.ISoftDeletable>())
             {
                 if (entry.State == EntityState.Deleted)

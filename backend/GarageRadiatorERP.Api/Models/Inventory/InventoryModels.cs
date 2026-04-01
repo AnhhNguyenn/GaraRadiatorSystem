@@ -59,10 +59,12 @@ namespace GarageRadiatorERP.Api.Models.Inventory
     }
 
     // Lô Tồn Kho - Yếu tố xương sống của hệ thống kế toán tính giá vốn FIFO
-    public class InventoryBatch
+    public class InventoryBatch : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         public Guid ProductId { get; set; }
         public Products.Product Product { get; set; } = null!;
@@ -87,10 +89,12 @@ namespace GarageRadiatorERP.Api.Models.Inventory
         public ICollection<InventoryTransaction> Transactions { get; set; } = new List<InventoryTransaction>();
     }
 
-    public class InventoryTransaction : GarageRadiatorERP.Api.Models.System.ISoftDeletable
+    public class InventoryTransaction : GarageRadiatorERP.Api.Models.System.ISoftDeletable, GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         public Guid ProductId { get; set; }
         public Products.Product Product { get; set; } = null!;

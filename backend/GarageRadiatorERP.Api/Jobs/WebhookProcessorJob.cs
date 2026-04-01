@@ -36,11 +36,17 @@ namespace GarageRadiatorERP.Api.Jobs
                     using var scope = _scopeFactory.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Data.AppDbContext>();
 
-                    // Bối cảnh 3 (Phần 2): Kéo Pending từ bảng PlatformPayloads để xử lý thay vì Channel RAM
+                    // Bối cảnh 3 (Phần 2): Sử dụng raw SQL UPDATE OUTPUT để lock hàng,
+                    // tránh Race Condition (Duplicate Order) khi Scale-out nhiều server chạy song song.
+                    var sql = @"
+                        UPDATE TOP (10) [PlatformPayloads] WITH (UPDLOCK, READPAST)
+                        SET [Status] = 'Processing'
+                        OUTPUT INSERTED.*
+                        WHERE [Status] = 'Pending'
+                    ";
+
                     var pendingWebhooks = await dbContext.PlatformPayloads
-                        .Where(p => p.Status == "Pending")
-                        .OrderBy(p => p.CreatedAt)
-                        .Take(100)
+                        .FromSqlRaw(sql)
                         .ToListAsync(stoppingToken);
 
                     if (pendingWebhooks.Count == 0)
@@ -54,8 +60,6 @@ namespace GarageRadiatorERP.Api.Jobs
                     foreach (var evt in pendingWebhooks)
                     {
                         await semaphore.WaitAsync(stoppingToken);
-                        evt.Status = "Processing"; // Lock row
-                        await dbContext.SaveChangesAsync(stoppingToken);
 
                         tasks.Add(Task.Run(async () =>
                         {
@@ -64,7 +68,11 @@ namespace GarageRadiatorERP.Api.Jobs
                             var platformService = innerScope.ServiceProvider.GetRequiredService<IPlatformService>();
 
                             var webhookToProcess = await innerDb.PlatformPayloads.FindAsync(new object[] { evt.Id }, stoppingToken);
-                            if (webhookToProcess == null) return;
+                            if (webhookToProcess == null)
+                            {
+                                semaphore.Release();
+                                return;
+                            }
 
                             try
                             {

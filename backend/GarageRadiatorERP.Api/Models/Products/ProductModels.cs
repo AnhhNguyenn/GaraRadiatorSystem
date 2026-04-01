@@ -5,10 +5,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GarageRadiatorERP.Api.Models.Products
 {
-    public class Product
+    public class Product : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(255)]
@@ -54,10 +56,12 @@ namespace GarageRadiatorERP.Api.Models.Products
         public ICollection<OEMReference> OEMReferences { get; set; } = new List<OEMReference>();
     }
 
-    public class ProductCategory
+    public class ProductCategory : GarageRadiatorERP.Api.Models.System.ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
 
         [Required]
         [StringLength(100)]
