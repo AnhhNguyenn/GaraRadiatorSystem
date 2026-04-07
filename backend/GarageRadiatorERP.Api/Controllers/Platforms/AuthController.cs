@@ -18,13 +18,15 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEncryptionUtility _encryptionUtility; // Fix Hardcode Static Key (Lỗi 30)
+        private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
 
-        public AuthController(ILogger<AuthController> logger, AppDbContext context, IConfiguration configuration, IEncryptionUtility encryptionUtility)
+        public AuthController(ILogger<AuthController> logger, AppDbContext context, IConfiguration configuration, IEncryptionUtility encryptionUtility, System.Net.Http.IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _context = context;
             _configuration = configuration;
             _encryptionUtility = encryptionUtility;
+            _httpClientFactory = httpClientFactory;
         }
 
         // Bối cảnh 2: Endpoint cấp State chống Login CSRF có gắn User ID
@@ -102,27 +104,68 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     await _context.SaveChangesAsync();
                 }
 
-                // Bối cảnh 2 (Phần 2): Mất tiền thật vì Mock Code còn kẹt lại
-                // Xóa toàn bộ giả lập lưu token rác. Sẵn sàng tích hợp HttpClient thật đổi Token.
-                // TODO: Triển khai HttpClient call tới Shopee OpenAPI 2.0 để lấy accessToken thật
+                // Bối cảnh 2 (Phần 2): Triển khai HttpClient call tới Shopee OpenAPI 2.0 để lấy accessToken thật
                 var realApiUrl = $"https://partner.shopeemobile.com/api/v2/auth/token/get";
-                _logger.LogInformation($"[TODO] Making HTTP POST to {realApiUrl} to exchange code: {code} for ShopId: {shop_id}");
+                _logger.LogInformation($"Making HTTP POST to {realApiUrl} to exchange code: {code} for ShopId: {shop_id}");
 
-                // Ở Production, chỗ này sẽ là _httpClient.PostAsync(...) và parse response
-                // Hiện tại chặn không lưu bất kỳ token giả nào vào DB để tránh BackgroundJob bị crash 401 khi chạy thật.
-                throw new NotImplementedException("Shopee OAuth Token Exchange is not implemented yet. Do not save mock tokens in Production.");
+                var client = _httpClientFactory.CreateClient();
 
-                // var frontendUrl = _configuration["FrontendUrl"];
-                // if (string.IsNullOrEmpty(frontendUrl)) return BadRequest("Frontend URL configuration missing");
-                // return Redirect($"{frontendUrl}/settings?auth_success=shopee&shop_id={shop_id}");
+                var requestBody = new
+                {
+                    code = code,
+                    shop_id = int.Parse(shop_id),
+                    partner_id = int.Parse(_configuration["Shopee:PartnerId"] ?? "0")
+                };
+
+                var response = await client.PostAsJsonAsync(realApiUrl, requestBody);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
+                    var root = doc.RootElement;
+
+                    if (root.TryGetProperty("access_token", out var accessTokenProp) && root.TryGetProperty("refresh_token", out var refreshTokenProp))
+                    {
+                        var accessToken = accessTokenProp.GetString() ?? "";
+                        var refreshToken = refreshTokenProp.GetString() ?? "";
+                        var expireIn = root.TryGetProperty("expire_in", out var expireProp) ? expireProp.GetInt32() : 14400; // Mặc định 4 tiếng nếu không có
+
+                        var token = new PlatformToken
+                        {
+                            Store = store,
+                            AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
+                            RefreshToken = _encryptionUtility.Encrypt(refreshToken),
+                            ExpiresAt = DateTime.UtcNow.AddSeconds(expireIn),
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        _context.PlatformTokens.Add(token);
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        var frontendUrl = _configuration["FrontendUrl"];
+                        if (string.IsNullOrEmpty(frontendUrl)) return Ok(new { message = "Shopee Auth Success" });
+                        return Redirect($"{frontendUrl}/settings?auth_success=shopee&shop_id={shop_id}");
+                    }
+                    else
+                    {
+                        _logger.LogError($"Shopee Auth failed parsing response: {jsonResponse}");
+                        await transaction.RollbackAsync();
+                        return BadRequest("Shopee Auth failed. Invalid response structure.");
+                    }
+                }
+                else
+                {
+                    var errorResponse = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Shopee Auth failed API call: {errorResponse}");
+                    await transaction.RollbackAsync();
+                    return BadRequest("Shopee Auth API error.");
+                }
             }
-            catch (NotImplementedException ex)
+            catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                return StatusCode(501, new { message = ex.Message });
-            }
-            catch (Exception)
-            {
+                _logger.LogError(ex, "Shopee Auth Callback Exception");
                 await transaction.RollbackAsync();
                 throw;
             }
@@ -184,25 +227,70 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     await _context.SaveChangesAsync();
                 }
 
-                // Bối cảnh 2 (Phần 2): Mất tiền thật vì Mock Code còn kẹt lại (TikTok)
-                // TODO: Triển khai HttpClient call tới TikTok Shop API để lấy AccessToken thật
+                // Bối cảnh 2 (Phần 2): Triển khai HttpClient call tới TikTok Shop API để lấy AccessToken thật
                 var realApiUrl = $"https://auth.tiktok-shops.com/api/v2/token/get";
-                _logger.LogInformation($"[TODO] Making HTTP POST to {realApiUrl} to exchange code: {auth_code}");
+                _logger.LogInformation($"Making HTTP POST to {realApiUrl} to exchange code: {auth_code}");
 
-                // Không lưu token rác. Phải có tích hợp HTTP thật trước khi release tính năng này.
-                throw new NotImplementedException("TikTok OAuth Token Exchange is not implemented yet. Do not save mock tokens in Production.");
+                var client = _httpClientFactory.CreateClient();
 
-                // var frontendUrl = _configuration["FrontendUrl"];
-                // if (string.IsNullOrEmpty(frontendUrl)) return BadRequest("Frontend URL configuration missing");
-                // return Redirect($"{frontendUrl}/settings?auth_success=tiktok");
+                var requestBody = new
+                {
+                    app_key = _configuration["TikTok:AppKey"],
+                    app_secret = _configuration["TikTok:AppSecret"],
+                    auth_code = auth_code,
+                    grant_type = "authorized_code"
+                };
+
+                var response = await client.PostAsJsonAsync(realApiUrl, requestBody);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
+                    var root = doc.RootElement;
+                    var dataNode = root.TryGetProperty("data", out var data) ? data : root;
+
+                    if (dataNode.TryGetProperty("access_token", out var accessTokenProp) && dataNode.TryGetProperty("refresh_token", out var refreshTokenProp))
+                    {
+                        var accessToken = accessTokenProp.GetString() ?? "";
+                        var refreshToken = refreshTokenProp.GetString() ?? "";
+                        var expireIn = dataNode.TryGetProperty("access_token_expire_in", out var expireProp) ? expireProp.GetInt32() : 2592000;
+
+                        var token = new PlatformToken
+                        {
+                            Store = store,
+                            AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
+                            RefreshToken = _encryptionUtility.Encrypt(refreshToken),
+                            ExpiresAt = DateTime.UtcNow.AddSeconds(expireIn),
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        _context.PlatformTokens.Add(token);
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        var frontendUrl = _configuration["FrontendUrl"];
+                        if (string.IsNullOrEmpty(frontendUrl)) return Ok(new { message = "TikTok Auth Success" });
+                        return Redirect($"{frontendUrl}/settings?auth_success=tiktok&shop_id={shop_id}");
+                    }
+                    else
+                    {
+                        _logger.LogError($"TikTok Auth failed parsing response: {jsonResponse}");
+                        await transaction.RollbackAsync();
+                        return BadRequest("TikTok Auth failed. Invalid response structure.");
+                    }
+                }
+                else
+                {
+                    var errorResponse = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"TikTok Auth failed API call: {errorResponse}");
+                    await transaction.RollbackAsync();
+                    return BadRequest("TikTok Auth API error.");
+                }
             }
-            catch (NotImplementedException ex)
+            catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                return StatusCode(501, new { message = ex.Message });
-            }
-            catch (Exception)
-            {
+                _logger.LogError(ex, "TikTok Auth Callback Exception");
                 await transaction.RollbackAsync();
                 throw;
             }
