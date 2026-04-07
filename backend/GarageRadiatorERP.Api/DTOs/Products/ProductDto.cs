@@ -13,6 +13,7 @@ namespace GarageRadiatorERP.Api.DTOs.Products
         public decimal? NetWeight { get; set; }
         public decimal? GrossWeight { get; set; }
         public string UnitOfMeasure { get; set; } = "Piece";
+        public decimal StandardCost { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -25,5 +26,7 @@ namespace GarageRadiatorERP.Api.DTOs.Products
         public string? Brand { get; set; }
         public decimal? NetWeight { get; set; }
         public decimal? GrossWeight { get; set; }
+        public string UnitOfMeasure { get; set; } = "Piece";
+        public decimal StandardCost { get; set; }
     }
 }

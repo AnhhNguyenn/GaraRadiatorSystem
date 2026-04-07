@@ -37,5 +37,19 @@ namespace GarageRadiatorERP.Api.Controllers.Inventory
             var po = await _inventoryService.CreatePurchaseOrderAsync(createDto);
             return Ok(po);
         }
+
+        [HttpPost("purchases/{id}/receive")]
+        public async Task<ActionResult<PurchaseOrderDto>> ReceivePurchaseOrder(System.Guid id)
+        {
+            try
+            {
+                var po = await _inventoryService.ReceivePurchaseOrderAsync(id);
+                return Ok(po);
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

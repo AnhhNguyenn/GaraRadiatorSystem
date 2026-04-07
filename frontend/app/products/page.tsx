@@ -23,25 +23,37 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Product } from '@/types/product';
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await api.products.categories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
       setLoading(true);
       const data = await api.products.list();
-      setProducts(data);
+      setProducts(data?.data || data || []);
     } catch (error) {
       console.error('Failed to load products:', error);
     } finally {
@@ -49,12 +61,67 @@ export default function ProductsPage() {
     }
   };
 
-  const handleEdit = (product: any) => {
+  const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name'),
+      sku: formData.get('sku'),
+      categoryName: formData.get('categoryName'),
+      retailPrice: Number(formData.get('retailPrice') || 0),
+      standardCost: Number(formData.get('standardCost') || 0),
+      unitOfMeasure: 'Piece'
+    };
+    try {
+      await api.products.create(data);
+      setIsAddModalOpen(false);
+      loadProducts();
+    } catch (error) {
+      console.error('Failed to create product:', error);
+      alert('Không thể tạo sản phẩm. Vui lòng thử lại.');
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name'),
+      sku: selectedProduct.sku, // SKU typically shouldn't change, but send it if required
+      categoryName: formData.get('categoryName'),
+      retailPrice: Number(formData.get('retailPrice') || 0),
+      standardCost: Number(formData.get('standardCost') || 0),
+      unitOfMeasure: selectedProduct.unitOfMeasure || 'Piece'
+    };
+    try {
+      await api.products.update(selectedProduct.id, data);
+      setIsEditModalOpen(false);
+      loadProducts();
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      alert('Không thể cập nhật sản phẩm.');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedProduct) return;
+    try {
+      await api.products.delete(selectedProduct.id);
+      setIsDeleteModalOpen(false);
+      loadProducts();
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      alert('Không thể xóa sản phẩm.');
+    }
+  };
+
+  const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (product: any) => {
+  const handleDelete = (product: Product) => {
     setSelectedProduct(product);
     setIsDeleteModalOpen(true);
   };
@@ -103,10 +170,9 @@ export default function ProductsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả danh mục</SelectItem>
-                <SelectItem value="ket_nuoc">Két nước</SelectItem>
-                <SelectItem value="nap_ket">Nắp két nước</SelectItem>
-                <SelectItem value="ong_nuoc">Ống nước</SelectItem>
-                <SelectItem value="quat">Quạt làm mát</SelectItem>
+                {categories.map((cat, idx) => (
+                  <SelectItem key={idx} value={cat}>{cat}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -139,7 +205,7 @@ export default function ProductsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product: any) => (
+              products.map((product: Product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-bold text-slate-400 text-xs">{product.sku || 'N/A'}</TableCell>
                   <TableCell className="font-extrabold text-slate-900">{product.name}</TableCell>
@@ -200,41 +266,36 @@ export default function ProductsPage() {
 
       {/* Add Product Modal */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Thêm sản phẩm mới" maxWidth="max-w-2xl">
-        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setIsAddModalOpen(false); }}>
+        <form className="space-y-6" onSubmit={handleCreateSubmit}>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tên sản phẩm *</label>
-              <Input required placeholder="VD: Két nước Toyota Vios 2015-2020" />
+              <Input name="name" required placeholder="VD: Két nước Toyota Vios 2015-2020" />
             </div>
             <div>
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Mã sản phẩm (SKU) *</label>
-              <Input required placeholder="VD: RAD-001" />
+              <Input name="sku" required placeholder="VD: RAD-001" />
             </div>
             <div>
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Danh mục *</label>
-              <Select required>
+              <Select name="categoryName" required>
                 <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
                   <SelectValue placeholder="Chọn danh mục" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ket_nuoc">Két nước</SelectItem>
-                  <SelectItem value="nap_ket">Nắp két nước</SelectItem>
-                  <SelectItem value="ong_nuoc">Ống nước</SelectItem>
-                  <SelectItem value="quat">Quạt làm mát</SelectItem>
+                  {categories.map((cat, idx) => (
+                    <SelectItem key={idx} value={cat}>{cat}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá bán lẻ (VNĐ) *</label>
-              <Input type="number" required placeholder="0" />
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá vốn tiêu chuẩn (Standard Cost) *</label>
+              <Input name="standardCost" type="number" required placeholder="0" />
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá sỉ / Gara (VNĐ)</label>
-              <Input type="number" placeholder="0" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Thông số kỹ thuật</label>
-              <Input placeholder="VD: Dày 16mm, Nhôm, 2 hàng ống" />
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá bán lẻ (VNĐ)</label>
+              <Input name="retailPrice" type="number" placeholder="0" />
             </div>
           </div>
           <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
@@ -275,11 +336,11 @@ export default function ProductsPage() {
       {/* Edit Product Modal */}
       <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Sửa sản phẩm" maxWidth="max-w-2xl">
         {selectedProduct && (
-          <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setIsEditModalOpen(false); }}>
+          <form className="space-y-6" onSubmit={handleEditSubmit}>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tên sản phẩm *</label>
-                <Input defaultValue={selectedProduct.name} required />
+                <Input name="name" defaultValue={selectedProduct.name} required />
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Mã sản phẩm (SKU) *</label>
@@ -287,25 +348,24 @@ export default function ProductsPage() {
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Danh mục *</label>
-                <Select required defaultValue={selectedProduct.categoryName === 'Két nước' ? 'ket_nuoc' : selectedProduct.categoryName === 'Nắp két nước' ? 'nap_ket' : selectedProduct.categoryName === 'Ống nước' ? 'ong_nuoc' : 'quat'}>
+                <Select name="categoryName" required defaultValue={selectedProduct.categoryName || ''}>
                   <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
                     <SelectValue placeholder="Danh mục" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ket_nuoc">Két nước</SelectItem>
-                    <SelectItem value="nap_ket">Nắp két nước</SelectItem>
-                    <SelectItem value="ong_nuoc">Ống nước</SelectItem>
-                    <SelectItem value="quat">Quạt làm mát</SelectItem>
+                    {categories.map((cat, idx) => (
+                      <SelectItem key={idx} value={cat}>{cat}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá bán lẻ (VNĐ) *</label>
-                <Input defaultValue={selectedProduct.retailPrice} required />
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá vốn tiêu chuẩn (Standard Cost) *</label>
+                <Input name="standardCost" type="number" defaultValue={selectedProduct.standardCost} required />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tồn kho</label>
-                <Input defaultValue={selectedProduct.currentStock} disabled className="bg-slate-50 font-bold" />
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Giá bán lẻ (VNĐ) *</label>
+                <Input name="retailPrice" type="number" defaultValue={selectedProduct.retailPrice} required />
               </div>
             </div>
             <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
@@ -326,7 +386,7 @@ export default function ProductsPage() {
           </div>
           <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
             <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)} className="rounded-xl">Hủy</Button>
-            <Button onClick={() => setIsDeleteModalOpen(false)} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-8">Xóa sản phẩm</Button>
+            <Button onClick={confirmDelete} className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-8">Xóa sản phẩm</Button>
           </div>
         </div>
       </Modal>
