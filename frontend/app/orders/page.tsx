@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Printer, CheckCircle, Clock, Truck, AlertTriangle, RefreshCw, Plus, Edit, MessageSquare, MapPin, CreditCard, Package, Store, X, Info } from 'lucide-react';
+import { Search, Filter, Printer, CheckCircle, CheckCircle2, Clock, Truck, AlertTriangle, RefreshCw, Plus, Edit, MessageSquare, MapPin, CreditCard, Package, Store, X, Info } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { api } from '@/lib/apiClient';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import toast from 'react-hot-toast';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -80,6 +81,7 @@ export default function OrdersPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedError, setSelectedError] = useState<any>(null);
 
@@ -125,6 +127,51 @@ export default function OrdersPage() {
   const handleViewDetails = (order: any) => {
     setSelectedOrder(order);
     setIsDetailModalOpen(true);
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (confirm('Bạn có chắc chắn muốn hủy đơn hàng này không? Tồn kho sẽ được cộng lại.')) {
+      try {
+        await api.orders.cancel(orderId, "Khách yêu cầu hủy");
+        toast.success("Đã hủy đơn hàng thành công");
+        loadOrders();
+      } catch (error) {
+        toast.error("Không thể hủy đơn hàng.");
+      }
+    }
+  };
+
+  const handleReturnOrder = async (orderId: string) => {
+    if (confirm('Xác nhận hàng đã quay đầu về kho?')) {
+      try {
+        await api.orders.returnOrder(orderId);
+        toast.success("Đã xác nhận hoàn hàng và nhập lại kho");
+        loadOrders();
+      } catch (error) {
+        toast.error("Không thể thực hiện thao tác hoàn hàng.");
+      }
+    }
+  };
+
+  const handleConfirmOrderSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    const formData = new FormData(e.currentTarget);
+    const shippingMethod = formData.get('shippingMethod') as string;
+
+    try {
+      await api.orders.confirmOrder(selectedOrder.id, shippingMethod);
+      toast.success("Xác nhận đơn thành công. Đã sinh mã vận đơn!");
+      setIsConfirmOrderModalOpen(false);
+      loadOrders();
+    } catch(error) {
+      toast.error("Có lỗi xảy ra khi xác nhận đơn.");
+    }
+  };
+
+  const handleOpenConfirmModal = (order: Order) => {
+    setSelectedOrder(order);
+    setIsConfirmOrderModalOpen(true);
   };
 
   const handleFixMapping = (err: any) => {
@@ -256,14 +303,28 @@ export default function OrdersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
-                        {(activeTab === 'shopee' || activeTab === 'tiktok') && order.labelUrl && (
-                          <Button variant="ghost" size="sm" onClick={() => window.open(order.labelUrl, '_blank')} className="text-emerald-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-emerald-50">
-                            <Printer className="mr-1 h-3 w-3" /> In Phiếu Giao
-                          </Button>
+                        {(activeTab === 'shopee' || activeTab === 'tiktok') && (
+                          statusKey === 'pending' ? (
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenConfirmModal(order)} className="text-blue-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-blue-50">
+                              <CheckCircle2 className="mr-1 h-3 w-3" /> Xác nhận đơn
+                            </Button>
+                          ) : order.labelUrl ? (
+                            <Button variant="ghost" size="sm" onClick={() => window.open(order.labelUrl, '_blank')} className="text-emerald-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-emerald-50">
+                              <Printer className="mr-1 h-3 w-3" /> In Phiếu Giao
+                            </Button>
+                          ) : null
                         )}
                         <Button variant="ghost" size="icon-sm" onClick={() => handleViewDetails(order)} className="text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full">
                           <Info className="h-5 w-5" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleCancelOrder(order.id)} className="text-rose-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-rose-50" disabled={statusKey === 'cancelled' || statusKey === 'returned' || statusKey === 'completed'}>
+                          <X className="mr-1 h-3 w-3" /> Hủy đơn
+                        </Button>
+                        {(statusKey === 'shipped' || statusKey === 'completed') && (
+                          <Button variant="ghost" size="sm" onClick={() => handleReturnOrder(order.id)} className="text-amber-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-amber-50">
+                            <RefreshCw className="mr-1 h-3 w-3" /> Hàng hoàn
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -322,6 +383,31 @@ export default function OrdersPage() {
             <Button type="submit" className="rounded-xl bg-primary px-8">Áp dụng lọc</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Confirm Order Modal */}
+      <Modal isOpen={isConfirmOrderModalOpen} onClose={() => setIsConfirmOrderModalOpen(false)} title="Xác nhận đơn hàng (RTS)">
+        {selectedOrder && (
+          <form className="space-y-6" onSubmit={handleConfirmOrderSubmit}>
+            <div>
+              <p className="text-sm text-slate-500 mb-4">Bạn đang chuẩn bị xác nhận đơn hàng <span className="font-bold text-slate-900">{selectedOrder.id.substring(0, 8)}</span>. Vui lòng chọn phương thức giao hàng:</p>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Phương thức *</label>
+              <Select name="shippingMethod" required defaultValue="pickup">
+                <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                  <SelectValue placeholder="Chọn phương thức" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pickup">Lấy hàng tại kho (Pickup)</SelectItem>
+                  <SelectItem value="dropoff">Tự mang ra bưu cục (Drop-off)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
+              <Button variant="ghost" type="button" onClick={() => setIsConfirmOrderModalOpen(false)} className="rounded-xl">Hủy</Button>
+              <Button type="submit" className="rounded-xl bg-primary px-8">Xác nhận ngay</Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Other modals would be similar but simplified for brevity in this transformation... */}

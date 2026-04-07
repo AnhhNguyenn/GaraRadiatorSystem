@@ -133,6 +133,9 @@ export const api = {
     },
     create: (data: any, customToken?: string) => fetchFromApi('/orders', { method: 'POST', body: JSON.stringify(data), token: customToken }),
     createPOS: (data: any, customToken?: string) => fetchFromApi('/orders/pos', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    cancel: (id: string, reason: string, customToken?: string) => fetchFromApi(`/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify(reason), token: customToken }),
+    returnOrder: (id: string, customToken?: string) => fetchFromApi(`/orders/${id}/return`, { method: 'POST', token: customToken }),
+    confirmOrder: (id: string, shippingMethod: string, customToken?: string) => fetchFromApi(`/orders/${id}/confirm`, { method: 'POST', body: JSON.stringify(shippingMethod), token: customToken }),
   },
   finance: {
     expenses: async (page: number = 1, limit: number = 100, customToken?: string) => {

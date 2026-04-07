@@ -12,7 +12,8 @@ namespace GarageRadiatorERP.Api.Services.Platforms
         Task SavePayloadAsync(string platform, string payloadJson);
         Task ProcessShopeeWebhookAsync(string payloadJson);
         Task ProcessTikTokWebhookAsync(string payloadJson);
-        Task FetchLogisticsDataAsync(Guid orderId);
+        Task ConfirmOrderOnPlatformAsync(Guid orderId, string shippingMethod);
+        Task SyncStockToPlatformAsync(Guid productId, int newQuantity);
     }
 
     public class PlatformService : IPlatformService
@@ -51,15 +52,26 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 using var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
 
-                // Assuming standard Shopee push: {"data": {"ordersn": "123", "status": "READY_TO_SHIP"}} // Or Chat: {"buyer_id": "123", "message": "Hi"}
+                // Assuming standard Shopee push: {"data": {"ordersn": "123", "status": "READY_TO_SHIP", "items": [{"item_id": 1, "model_id": 2, "quantity": 1}]}}
                 if (root.TryGetProperty("data", out var data) && data.TryGetProperty("ordersn", out var orderSnProp))
                 {
                     var orderSn = orderSnProp.GetString();
                     var status = data.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : "Pending";
 
+                    var items = new List<(string platformSku, int quantity, decimal price)>();
+                    if (data.TryGetProperty("items", out var itemsNode) && itemsNode.ValueKind == global::System.Text.Json.JsonValueKind.Array)
+                    {
+                        foreach(var item in itemsNode.EnumerateArray())
+                        {
+                            var modelId = item.TryGetProperty("model_id", out var mProp) ? mProp.GetInt64().ToString() : "";
+                            var qty = item.TryGetProperty("quantity", out var qProp) ? qProp.GetInt32() : 1;
+                            items.Add((modelId, qty, 0));
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(orderSn))
                     {
-                        await UpsertOnlineOrderAsync("Shopee", orderSn, status ?? "Pending");
+                        await UpsertOnlineOrderAsync("Shopee", orderSn, status ?? "Pending", items);
                     }
                 }
                 else if (root.TryGetProperty("message", out var msgProp) && root.TryGetProperty("buyer_id", out var buyerIdProp))
@@ -80,15 +92,26 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 using var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
                 var root = doc.RootElement;
 
-                // Assuming TikTok push: {"data": {"order_id": "123", "order_status": "AWAITING_SHIPMENT"}}
+                // Assuming TikTok push: {"data": {"order_id": "123", "order_status": "AWAITING_SHIPMENT", "sku_list": [{"sku_id": "T123", "quantity": 1}]}}
                 if (root.TryGetProperty("data", out var data) && data.TryGetProperty("order_id", out var orderIdProp))
                 {
                     var orderId = orderIdProp.GetString();
                     var status = data.TryGetProperty("order_status", out var statusProp) ? statusProp.GetString() : "Pending";
 
+                    var items = new List<(string platformSku, int quantity, decimal price)>();
+                    if (data.TryGetProperty("sku_list", out var itemsNode) && itemsNode.ValueKind == global::System.Text.Json.JsonValueKind.Array)
+                    {
+                        foreach(var item in itemsNode.EnumerateArray())
+                        {
+                            var skuId = item.TryGetProperty("sku_id", out var mProp) ? mProp.GetString() ?? "" : "";
+                            var qty = item.TryGetProperty("quantity", out var qProp) ? qProp.GetInt32() : 1;
+                            items.Add((skuId, qty, 0));
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(orderId))
                     {
-                        await UpsertOnlineOrderAsync("TikTok", orderId, status ?? "Pending");
+                        await UpsertOnlineOrderAsync("TikTok", orderId, status ?? "Pending", items);
                     }
                 }
                 else if (root.TryGetProperty("message", out var msgProp) && root.TryGetProperty("buyer_id", out var buyerIdProp))
@@ -99,19 +122,16 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             catch (global::System.Text.Json.JsonException) { }
         }
 
-        private async Task UpsertOnlineOrderAsync(string platform, string orderId, string status)
+        private async Task UpsertOnlineOrderAsync(string platform, string orderId, string status, List<(string platformSku, int quantity, decimal price)> items)
         {
             var existingDetail = await _context.OnlineOrderDetails
                 .Include(d => d.Order)
                 .FirstOrDefaultAsync(d => d.PlatformOrderId == orderId && d.Platform == platform);
 
-            Guid currentOrderId;
-
             if (existingDetail != null)
             {
                 // Update status
                 existingDetail.Order.Status = status;
-                currentOrderId = existingDetail.OrderId;
                 await _context.SaveChangesAsync();
             }
             else
@@ -134,9 +154,28 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     CourierName = ""
                 };
 
+                // Lấy danh sách mapping để thêm các Items vào Order (SKU Mapping Logic)
+                var platformSkuList = items.Select(i => i.platformSku).ToList();
+                var mappings = await _context.ProductMappings
+                    .Where(m => m.Platform == platform && platformSkuList.Contains(m.PlatformSkuId ?? ""))
+                    .ToDictionaryAsync(m => m.PlatformSkuId ?? "", m => m.ProductId);
+
+                foreach(var item in items)
+                {
+                    if (mappings.TryGetValue(item.platformSku, out var productId))
+                    {
+                        newOrder.Items.Add(new Models.Orders.OrderItem
+                        {
+                            ProductId = productId,
+                            Quantity = item.quantity,
+                            UnitPrice = item.price,
+                            CostPrice = 0 // Tạm thời để 0, logic OrderService RTS sẽ tính sau
+                        });
+                    }
+                }
+
                 _context.Orders.Add(newOrder);
                 await _context.SaveChangesAsync();
-                currentOrderId = newOrder.Id;
 
                 // Broadcast Realtime Notification
                 await _hubContext.Clients.All.SendAsync("ReceiveNotification", new
@@ -146,41 +185,60 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     time = DateTime.UtcNow
                 });
             }
-
-            // Gọi hàm Background để lấy chi tiết vận đơn. Thực tế nên đẩy qua Background Queue (VD: Hangfire).
-            // Do MVP, ta sẽ trigger Fire-and-forget lấy Logistics data.
-            _ = Task.Run(() => FetchLogisticsDataAsync(currentOrderId));
         }
 
-        public async Task FetchLogisticsDataAsync(Guid orderId)
+        public async Task ConfirmOrderOnPlatformAsync(Guid orderId, string shippingMethod)
         {
-            // Giả lập delay 5s như yêu cầu lấy mã vận đơn
-            await Task.Delay(TimeSpan.FromSeconds(5));
-
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            var orderDetail = await dbContext.OnlineOrderDetails.FirstOrDefaultAsync(o => o.OrderId == orderId);
-            if (orderDetail == null) return;
+            var orderDetail = await _context.OnlineOrderDetails.Include(o => o.Order).FirstOrDefaultAsync(o => o.OrderId == orderId);
+            if (orderDetail == null || orderDetail.Order == null) throw new ArgumentException("Order not found.");
 
             if (orderDetail.Platform == "Shopee")
             {
-                // Giả lập gọi Open API: v2.order.get_order_detail và v2.logistics.download_shipping_document
-                // Cập nhật thông tin thực tế từ JSON response
+                // Giả lập gọi Open API: v2.logistics.ship_order
                 orderDetail.CourierName = "SPX Express";
                 orderDetail.ShippingCode = "SPX" + new Random().Next(100000, 999999).ToString();
                 orderDetail.LabelUrl = $"https://seller.shopee.vn/api/v3/logistics/download_shipping_document?order_id={orderDetail.PlatformOrderId}";
+                // orderDetail.ShippingMethod = shippingMethod // Nếu model có
             }
             else if (orderDetail.Platform == "TikTok")
             {
-                // Giả lập gọi Open API: Get Eligible Shipping Service -> Create Packages -> Get Shipping Document
+                // Giả lập gọi Open API: /api/logistics/ship/detail
                 orderDetail.CourierName = "J&T Express";
                 orderDetail.ShippingCode = "JT" + new Random().Next(100000, 999999).ToString();
                 orderDetail.LabelUrl = $"https://seller-vn.tiktok.com/api/v1/orders/document?order_id={orderDetail.PlatformOrderId}";
+                // orderDetail.ShippingMethod = shippingMethod // Nếu model có
             }
 
-            dbContext.OnlineOrderDetails.Update(orderDetail);
-            await dbContext.SaveChangesAsync();
+            orderDetail.Order.Status = "Shipped";
+
+            _context.OnlineOrderDetails.Update(orderDetail);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task SyncStockToPlatformAsync(Guid productId, int newQuantity)
+        {
+            var mappings = await _context.ProductMappings
+                .Where(m => m.ProductId == productId)
+                .ToListAsync();
+
+            if (!mappings.Any()) return;
+
+            // Trong môi trường thật, ở đây sẽ có HttpClient gọi API của Shopee / TikTok để Push Stock
+            foreach(var mapping in mappings)
+            {
+                if (mapping.Platform == "Shopee")
+                {
+                    // var client = _httpClientFactory.CreateClient();
+                    // await client.PostAsJsonAsync("v2.product.update_stock", new { item_id = mapping.PlatformProductId, model_id = mapping.PlatformSkuId, stock_list = new[] { new { model_id = mapping.PlatformSkuId, normal_stock = newQuantity } } });
+                    Console.WriteLine($"[SyncStockToPlatform] Đã đẩy tồn kho: {newQuantity} cho Shopee SkuId: {mapping.PlatformSkuId}");
+                }
+                else if (mapping.Platform == "TikTok")
+                {
+                    // var client = _httpClientFactory.CreateClient();
+                    // await client.PostAsJsonAsync("/api/products/stock", new { product_id = mapping.PlatformProductId, skus = new[] { new { id = mapping.PlatformSkuId, stock_quantity = newQuantity } } });
+                    Console.WriteLine($"[SyncStockToPlatform] Đã đẩy tồn kho: {newQuantity} cho TikTok SkuId: {mapping.PlatformSkuId}");
+                }
+            }
         }
 
         private async Task UpsertChatMessageAsync(string platform, string buyerId, string messageText)

@@ -15,6 +15,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
     {
         Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default);
         Task<OrderDto> CreatePOSOrderAsync(CreatePOSOrderDto dto, global::System.Threading.CancellationToken cancellationToken = default);
+        Task CancelOrderAsync(Guid orderId, string reason);
+        Task ReturnOrderAsync(Guid orderId);
     }
 
     public class OrderService : IOrderService
@@ -25,19 +27,22 @@ namespace GarageRadiatorERP.Api.Services.Orders
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
         private readonly AutoMapper.IMapper _mapper;
+        private readonly Platforms.IPlatformService _platformService;
 
         public OrderService(
             AppDbContext context,
             Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext,
             GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider,
             Microsoft.Extensions.Configuration.IConfiguration configuration,
-            AutoMapper.IMapper mapper)
+            AutoMapper.IMapper mapper,
+            Platforms.IPlatformService platformService)
         {
             _context = context;
             _hubContext = hubContext;
             _tenantProvider = tenantProvider;
             _configuration = configuration;
             _mapper = mapper;
+            _platformService = platformService;
         }
 
 
@@ -208,6 +213,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                     time = DateTime.UtcNow
                                 });
                             }
+
+                            // Gọi đẩy tồn kho sau khi đã trừ đi số lượng bán
+                            await _platformService.SyncStockToPlatformAsync(itemDto.ProductId, currentTotalStock);
                         }
 
                         if (qtyToFulfill > 0)
@@ -244,7 +252,10 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                     order.TotalAmount = totalAmount;
                     order.TotalCost = totalCost;
-                    order.Profit = totalAmount - totalCost;
+                    order.PlatformFee = 0;
+                    order.ShippingFee = 0;
+                    order.ActualReceived = totalAmount;
+                    order.Profit = order.ActualReceived - totalCost;
 
                     _context.Orders.Add(order);
                     await _context.SaveChangesAsync(cancellationToken);
@@ -267,6 +278,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         Status = order.Status,
                         TotalAmount = order.TotalAmount,
                         TotalCost = order.TotalCost,
+                        ActualReceived = order.ActualReceived,
+                        PlatformFee = order.PlatformFee,
+                        ShippingFee = order.ShippingFee,
                         Profit = order.Profit
                     };
                 }
@@ -287,6 +301,113 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 }
             }
             throw new Exception("Unexpected error during Order creation.");
+            throw new Exception("Unexpected error during Order creation.");
+        }
+
+        public async Task CancelOrderAsync(Guid orderId, string reason)
+        {
+            var order = await _context.Orders
+                .Include(o => o.Items)
+                .ThenInclude(i => i.InventoryBatch)
+                .Include(o => o.OnlineDetails)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order == null) throw new ArgumentException("Order not found");
+            if (order.Status == "Cancelled" || order.Status == "Returned") throw new InvalidOperationException("Order is already cancelled or returned.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                order.Status = "Cancelled";
+                order.Notes = (order.Notes + $"\nCancelled Reason: {reason}").Trim();
+
+                foreach(var item in order.Items)
+                {
+                    if (item.InventoryBatchId.HasValue && item.InventoryBatch != null)
+                    {
+                        item.InventoryBatch.RemainingQuantity += item.Quantity; // Restore stock
+
+                        var returnTransaction = new InventoryTransaction
+                        {
+                            ProductId = item.ProductId,
+                            BatchId = item.InventoryBatchId,
+                            OrderId = order.Id,
+                            Type = "cancel_restore",
+                            QuantityChange = item.Quantity,
+                            ReferenceDocument = "Cancel Order",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.InventoryTransactions.Add(returnTransaction);
+                    }
+
+                    // Trigger Sync Stock
+                    var totalStock = await _context.InventoryBatches
+                        .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
+                        .SumAsync(b => b.RemainingQuantity);
+                    // Stock before save is old stock, we need to add the restored quantity for accurate sync before commit
+                    await _platformService.SyncStockToPlatformAsync(item.ProductId, totalStock + item.Quantity);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task ReturnOrderAsync(Guid orderId)
+        {
+            var order = await _context.Orders
+                .Include(o => o.Items)
+                .ThenInclude(i => i.InventoryBatch)
+                .Include(o => o.OnlineDetails)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order == null) throw new ArgumentException("Order not found");
+            if (order.Status != "Shipped" && order.Status != "Completed") throw new InvalidOperationException("Only shipped or completed orders can be returned.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                order.Status = "Returned";
+
+                foreach(var item in order.Items)
+                {
+                    if (item.InventoryBatchId.HasValue && item.InventoryBatch != null)
+                    {
+                        item.InventoryBatch.RemainingQuantity += item.Quantity;
+
+                        var returnTransaction = new InventoryTransaction
+                        {
+                            ProductId = item.ProductId,
+                            BatchId = item.InventoryBatchId,
+                            OrderId = order.Id,
+                            Type = "return",
+                            QuantityChange = item.Quantity,
+                            ReferenceDocument = "Return Order",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.InventoryTransactions.Add(returnTransaction);
+                    }
+
+                    var totalStock = await _context.InventoryBatches
+                        .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
+                        .SumAsync(b => b.RemainingQuantity);
+
+                    await _platformService.SyncStockToPlatformAsync(item.ProductId, totalStock + item.Quantity);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }
