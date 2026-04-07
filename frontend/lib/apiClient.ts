@@ -113,6 +113,9 @@ export const api = {
     },
     get: (id: string, customToken?: string) => fetchFromApi(`/products/${id}`, { token: customToken }),
     create: (data: any, customToken?: string) => fetchFromApi('/products', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    update: (id: string, data: any, customToken?: string) => fetchFromApi(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data), token: customToken }),
+    delete: (id: string, customToken?: string) => fetchFromApi(`/products/${id}`, { method: 'DELETE', token: customToken }),
+    categories: (customToken?: string) => fetchFromApi('/products/categories', { token: customToken }),
   },
   inventory: {
     batches: async (page: number = 1, limit: number = 100, customToken?: string) => {
@@ -120,6 +123,8 @@ export const api = {
       return res;
     },
     createBatch: (data: any, customToken?: string) => fetchFromApi('/inventory/batches', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    createPurchaseOrder: (data: any, customToken?: string) => fetchFromApi('/inventory/purchases', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    receivePurchaseOrder: (id: string, customToken?: string) => fetchFromApi(`/inventory/purchases/${id}/receive`, { method: 'POST', token: customToken }),
   },
   orders: {
     list: async (page: number = 1, limit: number = 100, customToken?: string) => {

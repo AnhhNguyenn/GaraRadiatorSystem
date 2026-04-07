@@ -144,15 +144,17 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         decimal fallbackCostPrice = historicalCosts.TryGetValue(itemDto.ProductId, out var hc) && hc > 0 ? hc : 0;
 
                         // Nếu sản phẩm này hoàn toàn chưa từng được nhập kho bao giờ (historical cost = 0)
-                        // Lúc này mới bất đắc dĩ fallback về % giá bán lẻ cấu hình để không bị âm Profit (Magic number fix)
+                        // Lúc này fallback về StandardCost. Nếu StandardCost cũng bằng 0 thì throw error không cho bán.
                         if (fallbackCostPrice == 0 && products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null)
                         {
-                            var defaultMarginStr = _configuration["BusinessSettings:DefaultFallbackMargin"] ?? "0.7";
-                            if (!decimal.TryParse(defaultMarginStr, out decimal defaultMargin))
+                            if (productObj.StandardCost > 0)
                             {
-                                defaultMargin = 0.7m;
+                                fallbackCostPrice = productObj.StandardCost;
                             }
-                            fallbackCostPrice = productObj.Price * defaultMargin;
+                            else
+                            {
+                                throw new InvalidOperationException($"Không thể tạo đơn: Chưa xác định được giá vốn cho SKU {productObj.SKU}. Vui lòng nhập kho hoặc cập nhật Giá vốn tiêu chuẩn cho sản phẩm");
+                            }
                         }
 
                         foreach (var batch in batchesToDeduct)

@@ -69,6 +69,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IPlatformService, PlatformService>();
+builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddSingleton<GarageRadiatorERP.Api.Utilities.IEncryptionUtility, GarageRadiatorERP.Api.Utilities.EncryptionUtility>();
 
 builder.Services.AddHostedService<GarageRadiatorERP.Api.Jobs.TokenRenewalJob>();

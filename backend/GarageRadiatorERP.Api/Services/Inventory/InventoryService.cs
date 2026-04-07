@@ -9,39 +9,25 @@ using GarageRadiatorERP.Api.DTOs.Inventory;
 
 namespace GarageRadiatorERP.Api.Services.Inventory
 {
-    public interface IInventoryService
-    {
-        Task<IEnumerable<InventoryBatchDto>> GetAllBatchesAsync();
-        Task<InventoryBatchDto> CreateBatchAsync(CreateInventoryBatchDto createDto);
-        Task<PurchaseOrderDto> CreatePurchaseOrderAsync(CreatePurchaseOrderDto createDto);
-    }
-
     public class InventoryService : IInventoryService
     {
         private readonly AppDbContext _context;
+        private readonly AutoMapper.IMapper _mapper;
 
-        public InventoryService(AppDbContext context)
+        public InventoryService(AppDbContext context, AutoMapper.IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         public async Task<IEnumerable<InventoryBatchDto>> GetAllBatchesAsync()
         {
-            return await _context.InventoryBatches
+            var batches = await _context.InventoryBatches
                 .Include(b => b.Product)
                 .Include(b => b.BinLocation)
-                .Select(b => new InventoryBatchDto
-                {
-                    Id = b.Id,
-                    ProductId = b.ProductId,
-                    ProductName = b.Product.Name,
-                    BinLocation = b.BinLocation != null ? b.BinLocation.Barcode : "N/A",
-                    InitialQuantity = b.InitialQuantity,
-                    RemainingQuantity = b.RemainingQuantity,
-                    CostPrice = b.CostPrice,
-                    ImportDate = b.ImportDate
-                })
                 .ToListAsync();
+
+            return _mapper.Map<IEnumerable<InventoryBatchDto>>(batches);
         }
 
         public async Task<InventoryBatchDto> CreateBatchAsync(CreateInventoryBatchDto createDto)
@@ -93,12 +79,55 @@ namespace GarageRadiatorERP.Api.Services.Inventory
             {
                 SupplierId = createDto.SupplierId,
                 PurchaseDate = DateTime.UtcNow,
-                Status = "Completed" // Auto-receive for simplicity
+                Status = "Pending" // Ban đầu lưu dạng Pending, chờ nhập kho thực tế
             };
 
             decimal totalCost = 0;
 
             foreach (var item in createDto.Items)
+            {
+                var poItem = new PurchaseItem
+                {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                    CostPrice = item.CostPrice
+                };
+                po.Items.Add(poItem);
+
+                totalCost += (item.Quantity * item.CostPrice);
+            }
+
+            po.TotalCost = totalCost;
+            _context.PurchaseOrders.Add(po);
+            await _context.SaveChangesAsync();
+
+            return new PurchaseOrderDto
+            {
+                Id = po.Id,
+                SupplierId = po.SupplierId,
+                PurchaseDate = po.PurchaseDate,
+                TotalCost = po.TotalCost,
+                Status = po.Status
+            };
+        }
+
+        public async Task<PurchaseOrderDto> ReceivePurchaseOrderAsync(Guid poId)
+        {
+            var po = await _context.PurchaseOrders
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == poId);
+
+            if (po == null)
+            {
+                throw new ArgumentException("Purchase Order not found");
+            }
+
+            if (po.Status == "Completed")
+            {
+                throw new InvalidOperationException("Purchase Order is already received and completed.");
+            }
+
+            foreach (var item in po.Items)
             {
                 var batch = new InventoryBatch
                 {
@@ -111,14 +140,7 @@ namespace GarageRadiatorERP.Api.Services.Inventory
                 };
                 _context.InventoryBatches.Add(batch);
 
-                var poItem = new PurchaseItem
-                {
-                    ProductId = item.ProductId,
-                    Quantity = item.Quantity,
-                    CostPrice = item.CostPrice,
-                    InventoryBatch = batch
-                };
-                po.Items.Add(poItem);
+                item.InventoryBatch = batch; // Link batch to the item
 
                 var transaction = new InventoryTransaction
                 {
@@ -126,27 +148,14 @@ namespace GarageRadiatorERP.Api.Services.Inventory
                     Batch = batch,
                     Type = "import",
                     QuantityChange = item.Quantity,
-                    ReferenceDocument = "PO", // Will be updated later
+                    ReferenceDocument = po.Id.ToString(),
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.InventoryTransactions.Add(transaction);
-
-                totalCost += (item.Quantity * item.CostPrice);
             }
 
-            po.TotalCost = totalCost;
-            _context.PurchaseOrders.Add(po);
+            po.Status = "Completed";
             await _context.SaveChangesAsync();
-
-            // update transaction ref
-            var transactions = _context.ChangeTracker.Entries<InventoryTransaction>()
-                .Where(e => e.Entity.ReferenceDocument == "PO")
-                .Select(e => e.Entity);
-            foreach (var t in transactions)
-            {
-                t.ReferenceDocument = po.Id.ToString();
-            }
-            if (transactions.Any()) await _context.SaveChangesAsync();
 
             return new PurchaseOrderDto
             {

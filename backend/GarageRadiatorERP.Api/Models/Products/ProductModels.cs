@@ -45,6 +45,9 @@ namespace GarageRadiatorERP.Api.Models.Products
         [Column(TypeName = "decimal(18,4)")]
         public decimal Price { get; set; } // Giá vốn trung bình / Giá tham khảo
 
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal StandardCost { get; set; } // Giá vốn tiêu chuẩn
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
