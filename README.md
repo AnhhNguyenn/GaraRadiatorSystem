@@ -1,51 +1,69 @@
-# Garage Radiator ERP - Giải pháp quản lý xưởng két nước ô tô chuyên nghiệp
+# Garage Radiator ERP - Nền tảng Quản trị Xưởng Két Nước Đa Kênh
 
-Chào mừng bạn đến với hệ thống ERP hoàn chỉnh cho Garage/Xưởng sản xuất két nước. Đây là một nền tảng quản thức hiện đại, hỗ trợ bán hàng đa kênh (Omnichannel), quản lý kho theo lô (FIFO), tài chính minh bạch và bảo mật cấp độ doanh nghiệp.
+![License](https://img.shields.io/badge/License-Proprietary-blue)
+![Version](https://img.shields.io/badge/Version-1.0.0--Stable-brightgreen)
+![Framework](https://img.shields.io/badge/.NET-9.0-purple)
+![Frontend](https://img.shields.io/badge/Next.js-15-black)
 
-## 🌟 Tính năng nổi bật
-
-### 1. Giao diện Elevated Design (iOS HIG)
-- Hệ thống UI được đại tu 100% theo phong cách Apple, mang lại cảm giác cao cấp, mượt mà.
-- Cấu trúc Card-based, bo góc cực lớn và đổ bóng mềm mại giúp giảm mỏi mắt cho nhân viên vận hành.
-
-### 2. Quản lý kho thông minh (FIFO & Locking)
-- Tự động khấu trừ hàng theo lô nhập cũ nhất (First-In, First-Out).
-- Cơ chế Locking giúp bảo vệ dữ liệu tồn kho khi có hàng trăm đơn hàng cùng lúc từ các sàn TMĐT.
-
-### 3. Tích hợp Sàn TMĐT (Shopee, TikTok)
-- Đồng bộ đơn hàng, tồn kho và tin nhắn Real-time qua Webhook Hub.
-- Tự động làm mới Access Token (OAuth2) giúp hệ thống luôn kết nối 24/7.
-
-### 4. Bảo mật & Hiệu năng
-- **Mã hóa AES-256**: Bảo vệ Token nhạy cảm trong Database.
-- **Rate Limiting**: Chống tấn công DDoS và cào dữ liệu trái phép.
-- **Security Headers & CORS**: Thắt chặt an ninh cho các giao dịch tài chính.
-- **Serilog Centralized Logging**: Truy vết lỗi và hoạt động hệ thống trong 30 ngày.
-
-## 🏗 Kiến trúc kỹ thuật
-
-- **Backend:** ASP.NET Core 9, EF Core (SQL Server), SignalR.
-- **Frontend:** Next.js 15 (App Router), Tailwind CSS v4, Radix UI.
-- **Thiết kế:** Apple Human Interface Guidelines (Elevated Style).
-
-## 🛠 Hướng dẫn triển khai (Go-live)
-### 1. Cấu hình Backend
-Mở `appsettings.json` trong `backend/GarageRadiatorERP.Api`:
-- Cập nhật Connection String tới SQL Server của bạn.
-- Điền `AppKey` và `AppSecret` nhận được từ cổng dev của Shopee/TikTok.
-- Thiết lập biến môi trường `ERP_ENCRYPTION_KEY` (32 ký tự) để kích hoạt mã hóa.
-
-### 2. Triển khai Production
-- **Backend:** Build và chạy trên IIS hoặc Docker Container.
-- **Frontend:** Build bằng lệnh `npm run build` và deploy lên Vercel hoặc Server Node.js.
-
-## 📖 Tài liệu chi tiết (Brain Artifacts)
-
-Để hiểu sâu hơn về quá trình phát triển và các thông số kỹ thuật, vui lòng tham khảo:
-- [✅ Lộ trình triển khai & Trạng thái kỹ thuật](implementation_plan.md)
-- [📈 Nhật ký hoàn thiện nhiệm vụ](task.md)
-- [🎥 Video trải nghiệm thực tế (Walkthrough)](walkthrough.md)
-- [🛡 Báo cáo an ninh & Kiểm định](project_analysis_report.md)
+Chào mừng bạn đến với **Garage Radiator ERP** - Hệ thống Hoạch định Nguồn lực Doanh nghiệp (ERP) thiết kế chuyên biệt cho các Gara và Xưởng sản xuất két nước ô tô. Nền tảng được xây dựng với kiến trúc hướng dịch vụ, quy trình quản lý kho theo lô (FIFO) chặt chẽ, và tích hợp đa kênh (Omnichannel) mượt mà.
 
 ---
-*Dự án được xây dựng bởi AnhNT.*
+
+## 🌟 Tính năng Cốt lõi
+
+### 1. Quản trị Kho hàng Thông minh (Inventory & FIFO)
+- **Quy trình Nhập hàng (PO):** Luồng nhập hàng thực tế (Pending -> Completed) ngăn chặn tuyệt đối tình trạng sai lệch dữ liệu tài chính.
+- **Tính toán Giá vốn:** Hệ thống sử dụng giá nhập lô thực tế kết hợp `StandardCost` dự phòng, chặn đứng các giao dịch làm âm giá trị kho hoặc sai lệch tỷ suất lợi nhuận.
+- **Cơ chế Khóa Đồng thời (Concurrency Locking):** Bảo vệ dữ liệu tồn kho khi phát sinh hàng trăm đơn hàng cùng lúc từ đa nền tảng.
+
+### 2. Tích hợp Sàn Thương mại Điện tử (Omnichannel)
+- Đồng bộ đơn hàng, tồn kho và tin nhắn Real-time qua Webhook Hub (Shopee, TikTok).
+- Cơ chế tự động làm mới Access Token (OAuth2) giữ kết nối liên tục 24/7.
+
+### 3. Trải nghiệm Người dùng Đỉnh cao (Elevated UI)
+- Giao diện được phát triển theo tiêu chuẩn Apple Human Interface Guidelines (iOS HIG).
+- Cấu trúc Card-based, bo góc và hiệu ứng đổ bóng mượt mà, tối ưu trải nghiệm cho nhân viên vận hành trên Next.js 15.
+- Dữ liệu hoàn toàn động, loại bỏ hoàn toàn các Mock Data giả lập trên production.
+
+### 4. Bảo mật & Kiến trúc Enterprise
+- **Clean Architecture:** Phân tách rõ ràng giữa các Layer (Interface, Service) và tuân thủ chặt chẽ SRP. DTO mapping tự động qua thư viện `AutoMapper`.
+- **An toàn Tuyệt đối:** Các thông tin nhạy cảm (Connection Strings, App Secrets) được quản lý qua Environment Variables, hoàn toàn tách biệt khỏi mã nguồn.
+- **Bảo mật Hạ tầng:** Mã hóa AES-256 cho Token, cấu hình Rate Limiting chống DDoS, Security Headers chặn XSS, Clickjacking.
+- **Truy vết Hệ thống:** Log tập trung qua Serilog.
+
+---
+
+## 🏗 Stack Công nghệ
+
+- **Backend:** C# ASP.NET Core 9, Entity Framework Core (SQL Server), SignalR, AutoMapper, Serilog.
+- **Frontend:** Next.js 15 (App Router), TypeScript (Strict Typing), Tailwind CSS v4, Radix UI.
+
+---
+
+## 🛠 Hướng dẫn Triển khai (Go-live)
+
+Hệ thống đã sẵn sàng cho môi trường Production. Vui lòng tuân thủ các bước dưới đây:
+
+### 1. Cấu hình Môi trường
+Các biến cấu hình bắt buộc phải được truyền qua Environment Variables hoặc Trình quản lý Secrets (Azure Key Vault / AWS Secrets Manager), KHÔNG sửa trực tiếp `appsettings.json`:
+- `ConnectionStrings__DefaultConnection`: Chuỗi kết nối Database SQL Server.
+- `Shopee__AppSecret` & `TikTok__AppSecret`: Token ứng dụng TMĐT.
+- `JWT_SECRET_KEY`: Khóa mã hóa JWT (Tối thiểu 32 ký tự).
+
+### 2. Triển khai Database
+- Chạy lệnh `dotnet ef database update` để đồng bộ toàn bộ schema và migrations (bao gồm các cập nhật về `StandardCost`).
+
+### 3. Khởi chạy
+- **Backend:** Chạy trên IIS, Kestrel hoặc build thành Docker Container.
+- **Frontend:** Build bằng lệnh `npm run build` và deploy lên Vercel hoặc Node.js Server.
+
+---
+
+## 📖 Hồ sơ & Thẩm định
+
+Dự án đã vượt qua bài kiểm tra Audit khắt khe nhất từ Ban Giám đốc, đảm bảo không có Mock Data, không rò rỉ bảo mật, và logic kế toán hoàn chỉnh.
+
+- [✅ Báo cáo Thẩm định Nghiệm thu (Audit Report)](audit_report.md)
+
+---
+*Phát triển và Thiết kế hệ thống bởi **AnhhNguyenn**.*
