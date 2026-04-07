@@ -11,6 +11,11 @@ namespace GarageRadiatorERP.Api.DTOs.Orders
         public decimal TotalAmount { get; set; }
         public decimal TotalCost { get; set; }
         public decimal Profit { get; set; }
+        public string? ShippingCarrier { get; set; }
+        public string? TrackingCode { get; set; }
+        public string? LabelUrl { get; set; }
+        public string? CustomerName { get; set; }
+        public DateTime OrderDate { get; set; }
     }
 
     public class CreatePOSOrderDto

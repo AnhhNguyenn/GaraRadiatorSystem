@@ -24,40 +24,39 @@ namespace GarageRadiatorERP.Api.Services.Orders
         private readonly GarageRadiatorERP.Api.Services.System.ITenantProvider _tenantProvider;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
+        private readonly AutoMapper.IMapper _mapper;
+
         public OrderService(
             AppDbContext context,
             Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext,
             GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider,
-            Microsoft.Extensions.Configuration.IConfiguration configuration)
+            Microsoft.Extensions.Configuration.IConfiguration configuration,
+            AutoMapper.IMapper mapper)
         {
             _context = context;
             _hubContext = hubContext;
             _tenantProvider = tenantProvider;
             _configuration = configuration;
+            _mapper = mapper;
         }
 
 
         public async Task<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>> GetOrdersAsync(int page = 1, int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
-            var query = _context.Orders;
+            var query = _context.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.OnlineDetails);
             int totalCount = await query.CountAsync(cancellationToken);
 
             var data = await query
                 .OrderByDescending(o => o.OrderDate)
                 .Skip((page - 1) * limit)
                 .Take(limit)
-                .Select(o => new OrderDto
-                {
-                    Id = o.Id,
-                    Source = o.Source,
-                    Status = o.Status,
-                    TotalAmount = o.TotalAmount,
-                    TotalCost = o.TotalCost,
-                    Profit = o.Profit
-                })
                 .ToListAsync(cancellationToken);
 
-            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>(data, totalCount, page, limit);
+            var dtos = _mapper.Map<List<OrderDto>>(data);
+
+            return new GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>(dtos, totalCount, page, limit);
         }
 
 

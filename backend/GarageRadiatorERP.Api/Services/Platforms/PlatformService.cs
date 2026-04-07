@@ -12,17 +12,20 @@ namespace GarageRadiatorERP.Api.Services.Platforms
         Task SavePayloadAsync(string platform, string payloadJson);
         Task ProcessShopeeWebhookAsync(string payloadJson);
         Task ProcessTikTokWebhookAsync(string payloadJson);
+        Task FetchLogisticsDataAsync(Guid orderId);
     }
 
     public class PlatformService : IPlatformService
     {
         private readonly AppDbContext _context;
         private readonly Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> _hubContext;
+        private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _scopeFactory;
 
-        public PlatformService(AppDbContext context, Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext)
+        public PlatformService(AppDbContext context, Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopeFactory)
         {
             _context = context;
             _hubContext = hubContext;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task SavePayloadAsync(string platform, string payloadJson)
@@ -102,10 +105,13 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 .Include(d => d.Order)
                 .FirstOrDefaultAsync(d => d.PlatformOrderId == orderId && d.Platform == platform);
 
+            Guid currentOrderId;
+
             if (existingDetail != null)
             {
                 // Update status
                 existingDetail.Order.Status = status;
+                currentOrderId = existingDetail.OrderId;
                 await _context.SaveChangesAsync();
             }
             else
@@ -130,6 +136,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
 
                 _context.Orders.Add(newOrder);
                 await _context.SaveChangesAsync();
+                currentOrderId = newOrder.Id;
 
                 // Broadcast Realtime Notification
                 await _hubContext.Clients.All.SendAsync("ReceiveNotification", new
@@ -139,6 +146,41 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     time = DateTime.UtcNow
                 });
             }
+
+            // Gọi hàm Background để lấy chi tiết vận đơn. Thực tế nên đẩy qua Background Queue (VD: Hangfire).
+            // Do MVP, ta sẽ trigger Fire-and-forget lấy Logistics data.
+            _ = Task.Run(() => FetchLogisticsDataAsync(currentOrderId));
+        }
+
+        public async Task FetchLogisticsDataAsync(Guid orderId)
+        {
+            // Giả lập delay 5s như yêu cầu lấy mã vận đơn
+            await Task.Delay(TimeSpan.FromSeconds(5));
+
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var orderDetail = await dbContext.OnlineOrderDetails.FirstOrDefaultAsync(o => o.OrderId == orderId);
+            if (orderDetail == null) return;
+
+            if (orderDetail.Platform == "Shopee")
+            {
+                // Giả lập gọi Open API: v2.order.get_order_detail và v2.logistics.download_shipping_document
+                // Cập nhật thông tin thực tế từ JSON response
+                orderDetail.CourierName = "SPX Express";
+                orderDetail.ShippingCode = "SPX" + new Random().Next(100000, 999999).ToString();
+                orderDetail.LabelUrl = $"https://seller.shopee.vn/api/v3/logistics/download_shipping_document?order_id={orderDetail.PlatformOrderId}";
+            }
+            else if (orderDetail.Platform == "TikTok")
+            {
+                // Giả lập gọi Open API: Get Eligible Shipping Service -> Create Packages -> Get Shipping Document
+                orderDetail.CourierName = "J&T Express";
+                orderDetail.ShippingCode = "JT" + new Random().Next(100000, 999999).ToString();
+                orderDetail.LabelUrl = $"https://seller-vn.tiktok.com/api/v1/orders/document?order_id={orderDetail.PlatformOrderId}";
+            }
+
+            dbContext.OnlineOrderDetails.Update(orderDetail);
+            await dbContext.SaveChangesAsync();
         }
 
         private async Task UpsertChatMessageAsync(string platform, string buyerId, string messageText)
