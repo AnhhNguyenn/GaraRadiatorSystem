@@ -42,5 +42,29 @@ namespace GarageRadiatorERP.Api.Controllers.Products
             var product = await _productService.CreateProductAsync(createDto);
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
+
+        [HttpGet("categories")]
+        public async Task<ActionResult<IEnumerable<string>>> GetCategories([FromServices] GarageRadiatorERP.Api.Data.AppDbContext dbContext, System.Threading.CancellationToken cancellationToken)
+        {
+            // Fallback MVP: Truy vấn DISTINCT CategoryName từ bảng Products
+            // Nếu có bảng ProductCategory, có thể query từ đó.
+            var categories = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                System.Linq.Queryable.Distinct(
+                    System.Linq.Queryable.Where(
+                        System.Linq.Queryable.Select(dbContext.Products, p => p.Category != null ? p.Category.Name : null),
+                        c => c != null
+                    )
+                ),
+                cancellationToken
+            );
+
+            // Bổ sung thêm các danh mục mặc định cho MVP nếu rỗng
+            if (categories.Count == 0)
+            {
+                categories.AddRange(new[] { "Két nước", "Nắp két nước", "Ống nước", "Quạt làm mát" });
+            }
+
+            return Ok(categories);
+        }
     }
 }

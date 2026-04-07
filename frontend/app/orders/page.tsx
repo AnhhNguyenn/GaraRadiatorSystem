@@ -55,14 +55,9 @@ interface Order {
 const tabs = [
   { id: 'offline', name: 'Tại cửa hàng / Gara' },
   { id: 'shopee', name: 'Đơn Shopee' },
-  { id: 'tiktok', name: 'Đơn TikTok' },
-  { id: 'errors', name: 'Lỗi đồng bộ (DLQ)' },
+  { id: 'tiktok', name: 'Đơn TikTok' }
 ];
 
-const mockErrors = [
-  { id: 'ERR-001', platform: 'Shopee', orderSn: '230311ABC', error: 'Không tìm thấy SKU mapping: SHP-RAD-001', time: '11/03/2026 09:45', retryCount: 5 },
-  { id: 'ERR-002', platform: 'TikTok', orderSn: 'TT-998877', error: 'Lỗi kết nối Database (Timeout)', time: '11/03/2026 08:20', retryCount: 5 },
-];
 
 const statusConfig: Record<string, { label: string, color: string, icon: any }> = {
   pending: { label: 'Chờ xác nhận', color: 'bg-amber-50 text-amber-600 border-amber-100', icon: Clock },
@@ -113,9 +108,9 @@ export default function OrdersPage() {
   const filteredOrders = getFilteredOrders();
 
   const getPlatformCount = (tabId: string) => {
-    if (tabId === 'errors') return mockErrors.length;
     return orders.filter(order => {
       const source = order.source?.toLowerCase();
+      if (tabId === 'all') return true;
       if (tabId === 'offline') return source === 'pos' || source === 'offline';
       if (tabId === 'shopee') return source === 'shopee';
       if (tabId === 'tiktok') return source === 'tiktok';
@@ -166,12 +161,11 @@ export default function OrdersPage() {
               )}
             >
               <div className="flex items-center gap-2">
-                {tab.id === 'errors' && <AlertTriangle className={cn("h-4 w-4", isActive ? "text-primary" : "text-rose-500")} />}
                 {tab.name}
                 {count > 0 && (
                   <span className={cn(
                     "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black",
-                    isActive ? "bg-primary text-white" : (tab.id === 'errors' ? "bg-rose-100 text-rose-600" : "bg-slate-200 text-slate-600")
+                    isActive ? "bg-primary text-white" : "bg-slate-200 text-slate-600"
                   )}>
                     {count}
                   </span>
@@ -187,21 +181,15 @@ export default function OrdersPage() {
           <div className="relative w-full sm:max-w-md group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
             <Input
-              placeholder={activeTab === 'errors' ? "Tìm mã đơn lỗi..." : "Tìm mã đơn, tên khách hàng..."}
+              placeholder="Tìm mã đơn, tên khách hàng..."
               className="pl-11"
             />
           </div>
           <div className="flex gap-3 w-full sm:w-auto">
-            {activeTab !== 'offline' && activeTab !== 'errors' && (
+            {activeTab !== 'offline' && (
               <Button variant="outline" className="rounded-xl">
                 <Printer className="mr-2 h-4 w-4" />
                 In hàng loạt
-              </Button>
-            )}
-            {activeTab === 'errors' && (
-              <Button variant="outline" className="rounded-xl text-emerald-600 border-emerald-100 bg-emerald-50 hover:bg-emerald-100">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Thử lại tất cả
               </Button>
             )}
           </div>
@@ -210,51 +198,18 @@ export default function OrdersPage() {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              {activeTab === 'errors' ? (
-                <TableRow>
-                  <TableHead className="w-[100px]">Nền tảng</TableHead>
-                  <TableHead>Mã đơn (Platform)</TableHead>
-                  <TableHead>Chi tiết lỗi</TableHead>
-                  <TableHead>Thời gian</TableHead>
-                  <TableHead className="text-center">Thử lại</TableHead>
-                  <TableHead className="w-[180px]"></TableHead>
-                </TableRow>
-              ) : (
-                <TableRow>
-                  <TableHead className="w-[40px]"><input type="checkbox" className="rounded border-slate-300" /></TableHead>
-                  <TableHead className="w-[120px]">Mã đơn</TableHead>
-                  <TableHead>Khách hàng</TableHead>
-                  <TableHead>Thời gian</TableHead>
-                  <TableHead className="text-right">Tổng tiền</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              )}
+              <TableRow>
+                <TableHead className="w-[40px]"><input type="checkbox" className="rounded border-slate-300" /></TableHead>
+                <TableHead className="w-[120px]">Mã đơn</TableHead>
+                <TableHead>Khách hàng</TableHead>
+                <TableHead>Thời gian</TableHead>
+                <TableHead className="text-right">Tổng tiền</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
-              {activeTab === 'errors' ? (
-                mockErrors.map((err) => (
-                  <TableRow key={err.id}>
-                    <TableCell>
-                      <Badge className={cn("font-black uppercase text-[10px]", err.platform === 'Shopee' ? 'bg-[#f97316] text-white' : 'bg-black text-white')}>
-                        {err.platform}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-bold text-slate-900">{err.orderSn}</TableCell>
-                    <TableCell className="text-xs font-bold text-rose-600 max-w-xs truncate">{err.error}</TableCell>
-                    <TableCell className="text-xs text-slate-500 font-medium">{err.time}</TableCell>
-                    <TableCell className="text-center font-black text-slate-400">{err.retryCount}/5</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleFixMapping(err)} className="text-primary font-bold text-xs h-8 px-3 rounded-lg hover:bg-primary/5">Sửa Mapping</Button>
-                        <Button variant="ghost" size="icon-sm" className="text-emerald-600 hover:bg-emerald-50 rounded-full">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : loading ? (
+              {loading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">Đang tải dữ liệu...</TableCell>
                 </TableRow>
@@ -297,7 +252,7 @@ export default function OrdersPage() {
         
         <div className="px-6 py-4 flex items-center justify-between bg-slate-50/50">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">
-            Hiển thị <span className="text-slate-900 not-italic font-black">{activeTab === 'errors' ? mockErrors.length : filteredOrders.length}</span> đơn hàng
+            Hiển thị <span className="text-slate-900 not-italic font-black">{filteredOrders.length}</span> đơn hàng
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="xs" disabled className="rounded-lg">Trước</Button>

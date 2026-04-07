@@ -683,6 +683,9 @@ namespace GarageRadiatorERP.Api.Migrations
                     b.Property<decimal?>("NetWeight")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("StandardCost")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<string>("SKU")
                         .IsRequired()
                         .HasMaxLength(50)
