@@ -23,7 +23,11 @@ namespace GarageRadiatorERP.Api.Mapping
                 .ForMember(dest => dest.BinLocation, opt => opt.MapFrom(src => src.BinLocation != null ? src.BinLocation.Barcode : "N/A"));
 
             // Order Mappings
-            CreateMap<Order, OrderDto>();
+            CreateMap<Order, OrderDto>()
+                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.Name : null))
+                .ForMember(dest => dest.ShippingCarrier, opt => opt.MapFrom(src => src.OnlineDetails != null ? src.OnlineDetails.CourierName : null))
+                .ForMember(dest => dest.TrackingCode, opt => opt.MapFrom(src => src.OnlineDetails != null ? src.OnlineDetails.ShippingCode : null))
+                .ForMember(dest => dest.LabelUrl, opt => opt.MapFrom(src => src.OnlineDetails != null ? src.OnlineDetails.LabelUrl : null));
             CreateMap<PurchaseOrder, PurchaseOrderDto>();
         }
     }

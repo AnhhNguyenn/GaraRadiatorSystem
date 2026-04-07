@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, Printer, CheckCircle, Clock, Truck, AlertTriangle, RefreshCw, Plus, Edit, MessageSquare, MapPin, CreditCard, Package, Store, X, Info } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { api } from '@/lib/apiClient';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -50,6 +51,9 @@ interface Order {
   totalAmount: number;
   items: OrderItem[];
   onlineDetails?: OnlineDetails;
+  trackingCode?: string;
+  shippingCarrier?: string;
+  labelUrl?: string;
 }
 
 const tabs = [
@@ -201,18 +205,29 @@ export default function OrdersPage() {
               <TableRow>
                 <TableHead className="w-[40px]"><input type="checkbox" className="rounded border-slate-300" /></TableHead>
                 <TableHead className="w-[120px]">Mã đơn</TableHead>
-                <TableHead>Khách hàng</TableHead>
+                {(activeTab === 'shopee' || activeTab === 'tiktok') ? (
+                  <>
+                    <TableHead>Mã Vận Đơn</TableHead>
+                    <TableHead>ĐVVC</TableHead>
+                  </>
+                ) : (
+                  <TableHead>Khách hàng</TableHead>
+                )}
                 <TableHead>Thời gian</TableHead>
                 <TableHead className="text-right">Tổng tiền</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
+                <TableHead className="w-[120px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">Đang tải dữ liệu...</TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell colSpan={8}>
+                      <Skeleton className="h-10 w-full rounded-xl" />
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : filteredOrders.length > 0 ? filteredOrders.map((order) => {
                 const statusKey = order.status?.toLowerCase() || 'pending';
                 const config = statusConfig[statusKey] || statusConfig['pending'];
@@ -221,7 +236,14 @@ export default function OrdersPage() {
                   <TableRow key={order.id}>
                     <TableCell><input type="checkbox" className="rounded border-slate-300" /></TableCell>
                     <TableCell className="font-bold text-primary text-xs uppercase">{order.id.substring(0, 8)}</TableCell>
-                    <TableCell className="font-extrabold text-slate-900">{order.customerName || 'Khách lẻ'}</TableCell>
+                    {(activeTab === 'shopee' || activeTab === 'tiktok') ? (
+                      <>
+                        <TableCell className="font-bold text-slate-700">{order.trackingCode || '---'}</TableCell>
+                        <TableCell className="font-bold text-slate-700">{order.shippingCarrier || '---'}</TableCell>
+                      </>
+                    ) : (
+                      <TableCell className="font-extrabold text-slate-900">{order.customerName || 'Khách lẻ'}</TableCell>
+                    )}
                     <TableCell className="text-xs font-medium text-slate-500">{new Date(order.orderDate).toLocaleString('vi-VN')}</TableCell>
                     <TableCell className="text-right font-black text-slate-900">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
@@ -234,6 +256,11 @@ export default function OrdersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
+                        {(activeTab === 'shopee' || activeTab === 'tiktok') && order.labelUrl && (
+                          <Button variant="ghost" size="sm" onClick={() => window.open(order.labelUrl, '_blank')} className="text-emerald-600 font-bold text-xs h-8 px-3 rounded-lg hover:bg-emerald-50">
+                            <Printer className="mr-1 h-3 w-3" /> In Phiếu Giao
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon-sm" onClick={() => handleViewDetails(order)} className="text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full">
                           <Info className="h-5 w-5" />
                         </Button>
@@ -243,7 +270,7 @@ export default function OrdersPage() {
                 );
               }) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">Không có đơn hàng nào.</TableCell>
+                  <TableCell colSpan={8} className="h-32 text-center text-slate-400 italic">Không có đơn hàng nào.</TableCell>
                 </TableRow>
               )}
             </TableBody>

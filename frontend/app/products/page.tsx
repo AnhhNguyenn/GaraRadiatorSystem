@@ -24,6 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Product } from '@/types/product';
+import toast from 'react-hot-toast';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -76,9 +77,10 @@ export default function ProductsPage() {
       await api.products.create(data);
       setIsAddModalOpen(false);
       loadProducts();
+      toast.success('Thêm sản phẩm thành công');
     } catch (error) {
       console.error('Failed to create product:', error);
-      alert('Không thể tạo sản phẩm. Vui lòng thử lại.');
+      toast.error('Không thể tạo sản phẩm. Vui lòng thử lại.');
     }
   };
 
@@ -98,9 +100,10 @@ export default function ProductsPage() {
       await api.products.update(selectedProduct.id, data);
       setIsEditModalOpen(false);
       loadProducts();
+      toast.success('Cập nhật sản phẩm thành công');
     } catch (error) {
       console.error('Failed to update product:', error);
-      alert('Không thể cập nhật sản phẩm.');
+      toast.error('Không thể cập nhật sản phẩm.');
     }
   };
 
@@ -110,9 +113,10 @@ export default function ProductsPage() {
       await api.products.delete(selectedProduct.id);
       setIsDeleteModalOpen(false);
       loadProducts();
+      toast.success('Đã xóa sản phẩm');
     } catch (error) {
       console.error('Failed to delete product:', error);
-      alert('Không thể xóa sản phẩm.');
+      toast.error('Không thể xóa sản phẩm.');
     }
   };
 
