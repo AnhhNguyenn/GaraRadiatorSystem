@@ -116,6 +116,7 @@ export const api = {
     update: (id: string, data: any, customToken?: string) => fetchFromApi(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data), token: customToken }),
     delete: (id: string, customToken?: string) => fetchFromApi(`/products/${id}`, { method: 'DELETE', token: customToken }),
     categories: (customToken?: string) => fetchFromApi('/products/categories', { token: customToken }),
+    createMapping: (id: string, data: any, customToken?: string) => fetchFromApi(`/products/${id}/mappings`, { method: 'POST', body: JSON.stringify(data), token: customToken }),
   },
   inventory: {
     batches: async (page: number = 1, limit: number = 100, customToken?: string) => {
@@ -148,11 +149,19 @@ export const api = {
         token: customToken,
         timeoutMs: 60000 // Tăng timeout cho báo cáo kế toán nặng
       }),
-
+    reconciliation: (customToken?: string) => fetchFromApi(`/finance/reconciliation`, { token: customToken }),
   },
   chat: {
     sessions: (customToken?: string) => fetchFromApi('/chat/sessions', { token: customToken }),
     messages: (id: string, customToken?: string) => fetchFromApi(`/chat/sessions/${id}/messages`, { token: customToken }),
     sendMessage: (id: string, text: string, customToken?: string) => fetchFromApi(`/chat/sessions/${id}/messages`, { method: 'POST', body: JSON.stringify({ messageText: text }), token: customToken }),
+  },
+  promotions: {
+    createVoucher: (data: any, customToken?: string) => fetchFromApi('/promotions/voucher', { method: 'POST', body: JSON.stringify(data), token: customToken }),
+    createFlashSale: (data: any, customToken?: string) => fetchFromApi('/promotions/flash-sale', { method: 'POST', body: JSON.stringify(data), token: customToken })
+  },
+  reviews: {
+    list: (customToken?: string) => fetchFromApi('/reviews', { token: customToken }),
+    reply: (id: string, text: string, customToken?: string) => fetchFromApi(`/reviews/${id}/reply`, { method: 'POST', body: JSON.stringify(text), token: customToken })
   }
 };

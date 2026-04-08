@@ -4,7 +4,7 @@ using GarageRadiatorERP.Api.Data;
 using GarageRadiatorERP.Api.Models.Platforms;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using global::System.Linq;
 using System.Threading.Tasks;
 
 namespace GarageRadiatorERP.Api.Controllers.Platforms

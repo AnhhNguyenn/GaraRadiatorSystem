@@ -55,5 +55,34 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
             var result = await _financeService.CreateExpenseAsync(expenseDto, cancellationToken);
             return Ok(result);
         }
+
+        [HttpGet("reconciliation")]
+        public async Task<IActionResult> GetReconciliation([FromServices] GarageRadiatorERP.Api.Data.AppDbContext context)
+        {
+            // Trả về danh sách đơn hàng đã thanh toán / hoàn thành trên sàn TMĐT để kế toán kiểm tra
+            var orders = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                global::System.Linq.Queryable.OrderByDescending(
+                    global::System.Linq.Queryable.Select(
+                        global::System.Linq.Queryable.Where(context.Orders, o => (o.Source == "Shopee" || o.Source == "TikTok") && (o.Status == "Completed" || o.Status == "Shipped")),
+                        o => new
+                        {
+                            o.Id,
+                            o.Source,
+                            o.OrderDate,
+                            o.TotalAmount,
+                            o.TotalCost,
+                            o.PlatformFee,
+                            o.ShippingFee,
+                            o.ActualReceived,
+                            ExpectedProfit = o.TotalAmount - o.TotalCost, // Tính theo chuẩn Giá bán trừ Giá vốn
+                            ActualProfit = o.ActualReceived - o.TotalCost // Tính theo thực tế
+                        }
+                    ),
+                    x => x.OrderDate
+                )
+            );
+
+            return Ok(orders);
+        }
     }
 }

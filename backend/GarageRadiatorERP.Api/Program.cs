@@ -49,7 +49,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<GarageRadiatorERP.Api.Services.System.ITenantProvider, GarageRadiatorERP.Api.Services.System.TenantProvider>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     {
@@ -62,7 +62,8 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         options.Password.RequireUppercase = true;
     })
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddSignInManager<SignInManager<ApplicationUser>>();
 
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
@@ -196,6 +197,11 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    await GarageRadiatorERP.Api.Data.DataSeeder.InitializeAsync(scope.ServiceProvider);
+}
+
 app.UseForwardedHeaders(); // Phải nằm trước các middleware khác để lấy đúng IP
 
 app.UseExceptionHandler(); // Kích hoạt ProblemDetails Global Exception Handler (Lỗi 37)
@@ -228,6 +234,8 @@ app.UseCors("AllowNextJs");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<GarageRadiatorERP.Api.Middleware.TenantSubscriptionMiddleware>(); // Bảo vệ luồng Data Khách hàng
 
 // Bỏ RequireRateLimiting khỏi WebSocket vì nó chỉ chặn handshake và vô dụng sau khi kết nối,
 // còn làm ảnh hưởng request HTTP REST (Lỗi 39, 40)

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
-using System.Text;
+using global::System.Text;
 using GarageRadiatorERP.Api.Services.Platforms;
 using Microsoft.EntityFrameworkCore;
 
@@ -104,7 +104,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         {
             try
             {
-                var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
                 if (platform == "Shopee" && doc.RootElement.TryGetProperty("shop_id", out var shopeeShopId))
                 {
                     return shopeeShopId.ToString();

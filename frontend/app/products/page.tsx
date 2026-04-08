@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Settings, Car, Edit, Trash2 } from 'lucide-react';
+import { Search, Filter, Plus, Settings, Car, Edit, Trash2, Link } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { api } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ export default function ProductsPage() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
@@ -128,6 +129,30 @@ export default function ProductsPage() {
   const handleDelete = (product: Product) => {
     setSelectedProduct(product);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleMapping = (product: Product) => {
+    setSelectedProduct(product);
+    setIsMappingModalOpen(true);
+  };
+
+  const handleMappingSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      platform: formData.get('platform'),
+      platformProductId: formData.get('platformProductId'),
+      platformSkuId: formData.get('platformSkuId'),
+      platformSku: formData.get('platformSku'),
+    };
+    try {
+      await api.products.createMapping(selectedProduct.id, data);
+      setIsMappingModalOpen(false);
+      toast.success('Đã liên kết sản phẩm lên Sàn thành công');
+    } catch (error) {
+      toast.error('Không thể liên kết mã sàn');
+    }
   };
 
   return (
@@ -243,6 +268,9 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon-sm" onClick={() => handleMapping(product)} className="text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-full">
+                        <Link className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon-sm" onClick={() => handleEdit(product)} className="text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full">
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -394,6 +422,50 @@ export default function ProductsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* SKU Mapping Modal */}
+      <Modal isOpen={isMappingModalOpen} onClose={() => setIsMappingModalOpen(false)} title="Liên kết mã Sàn TMĐT">
+        {selectedProduct && (
+          <form className="space-y-6" onSubmit={handleMappingSubmit}>
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-4">Sản phẩm ERP: <span className="font-bold text-slate-900">{selectedProduct.sku}</span> - {selectedProduct.name}</p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Sàn TMĐT *</label>
+                <Select name="platform" required defaultValue="Shopee">
+                  <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                    <SelectValue placeholder="Chọn Sàn" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Shopee">Shopee</SelectItem>
+                    <SelectItem value="TikTok">TikTok Shop</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Product ID (ID Sản phẩm trên Sàn) *</label>
+                <Input name="platformProductId" required placeholder="Ví dụ: 123456789" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">SKU ID (Mã Model Sàn)</label>
+                  <Input name="platformSkuId" placeholder="Ví dụ: 987654321" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tên SKU Sàn</label>
+                  <Input name="platformSku" placeholder="Ví dụ: SHP-99" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
+              <Button variant="ghost" type="button" onClick={() => setIsMappingModalOpen(false)} className="rounded-xl">Hủy</Button>
+              <Button type="submit" className="rounded-xl bg-primary px-8">Lưu Liên Kết</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
     </div>
   );
 }

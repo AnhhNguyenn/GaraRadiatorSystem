@@ -39,14 +39,14 @@ namespace GarageRadiatorERP.Api.Controllers.Inventory
         }
 
         [HttpPost("purchases/{id}/receive")]
-        public async Task<ActionResult<PurchaseOrderDto>> ReceivePurchaseOrder(System.Guid id)
+        public async Task<ActionResult<PurchaseOrderDto>> ReceivePurchaseOrder(global::System.Guid id)
         {
             try
             {
                 var po = await _inventoryService.ReceivePurchaseOrderAsync(id);
                 return Ok(po);
             }
-            catch (System.Exception ex)
+            catch (global::System.Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }

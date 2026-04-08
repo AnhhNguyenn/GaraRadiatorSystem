@@ -301,7 +301,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 }
             }
             throw new Exception("Unexpected error during Order creation.");
-            throw new Exception("Unexpected error during Order creation.");
         }
 
         public async Task CancelOrderAsync(Guid orderId, string reason)
