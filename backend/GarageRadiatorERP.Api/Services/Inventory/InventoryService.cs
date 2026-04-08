@@ -13,11 +13,13 @@ namespace GarageRadiatorERP.Api.Services.Inventory
     {
         private readonly AppDbContext _context;
         private readonly AutoMapper.IMapper _mapper;
+        private readonly GarageRadiatorERP.Api.Services.Platforms.IPlatformService _platformService;
 
-        public InventoryService(AppDbContext context, AutoMapper.IMapper mapper)
+        public InventoryService(AppDbContext context, AutoMapper.IMapper mapper, GarageRadiatorERP.Api.Services.Platforms.IPlatformService platformService)
         {
             _context = context;
             _mapper = mapper;
+            _platformService = platformService;
         }
 
         public async Task<IEnumerable<InventoryBatchDto>> GetAllBatchesAsync()
@@ -152,6 +154,14 @@ namespace GarageRadiatorERP.Api.Services.Inventory
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.InventoryTransactions.Add(transaction);
+
+                // Lấy tổng tồn kho hiện tại + số lượng mới nhập để đồng bộ Sàn TMĐT
+                var currentTotalStock = await _context.InventoryBatches
+                    .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
+                    .SumAsync(b => b.RemainingQuantity);
+
+                // Đồng bộ lên Sàn TMĐT
+                await _platformService.SyncStockToPlatformAsync(item.ProductId, currentTotalStock + item.Quantity);
             }
 
             po.Status = "Completed";

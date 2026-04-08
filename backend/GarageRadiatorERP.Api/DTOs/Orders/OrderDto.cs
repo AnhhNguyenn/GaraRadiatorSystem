@@ -10,6 +10,9 @@ namespace GarageRadiatorERP.Api.DTOs.Orders
         public string Status { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
         public decimal TotalCost { get; set; }
+        public decimal PlatformFee { get; set; }
+        public decimal ShippingFee { get; set; }
+        public decimal ActualReceived { get; set; }
         public decimal Profit { get; set; }
         public string? ShippingCarrier { get; set; }
         public string? TrackingCode { get; set; }

@@ -42,5 +42,47 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPost("{id}/cancel")]
+        public async Task<IActionResult> CancelOrder(System.Guid id, [FromBody] string reason)
+        {
+            try
+            {
+                await _orderService.CancelOrderAsync(id, reason);
+                return Ok(new { message = "Order cancelled successfully." });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/return")]
+        public async Task<IActionResult> ReturnOrder(System.Guid id)
+        {
+            try
+            {
+                await _orderService.ReturnOrderAsync(id);
+                return Ok(new { message = "Order returned successfully." });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/confirm")]
+        public async Task<IActionResult> ConfirmOrder(System.Guid id, [FromServices] GarageRadiatorERP.Api.Services.Platforms.IPlatformService platformService, [FromBody] string shippingMethod)
+        {
+            try
+            {
+                await platformService.ConfirmOrderOnPlatformAsync(id, shippingMethod);
+                return Ok(new { message = "Order confirmed successfully." });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
