@@ -63,6 +63,9 @@ namespace GarageRadiatorERP.Api.Data
         public DbSet<PlatformStore> PlatformStores { get; set; }
         public DbSet<PlatformToken> PlatformTokens { get; set; }
         public DbSet<GarageRadiatorERP.Api.Models.Products.ProductMapping> ProductMappings { get; set; }
+        public DbSet<GarageRadiatorERP.Api.Models.Platforms.ProductReview> ProductReviews { get; set; }
+        public DbSet<GarageRadiatorERP.Api.Models.System.TenantSubscription> TenantSubscriptions { get; set; }
+        public DbSet<GarageRadiatorERP.Api.Models.System.TenantRole> TenantRoles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

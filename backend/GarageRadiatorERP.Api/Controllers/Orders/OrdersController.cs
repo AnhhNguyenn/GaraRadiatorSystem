@@ -18,14 +18,14 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
         }
 
         [HttpGet]
-        public async Task<ActionResult<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>>> GetOrders([FromQuery] int page = 1, [FromQuery] int limit = 100, System.Threading.CancellationToken cancellationToken = default)
+        public async Task<ActionResult<GarageRadiatorERP.Api.DTOs.System.PagedResponseDto<OrderDto>>> GetOrders([FromQuery] int page = 1, [FromQuery] int limit = 100, global::System.Threading.CancellationToken cancellationToken = default)
         {
             var result = await _orderService.GetOrdersAsync(page, limit, cancellationToken);
             return Ok(result);
         }
 
         [HttpPost("pos")]
-        public async Task<ActionResult<OrderDto>> CreatePOSOrder([FromBody] CreatePOSOrderDto createDto, System.Threading.CancellationToken cancellationToken)
+        public async Task<ActionResult<OrderDto>> CreatePOSOrder([FromBody] CreatePOSOrderDto createDto, global::System.Threading.CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -37,49 +37,49 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
                 var order = await _orderService.CreatePOSOrderAsync(createDto, cancellationToken);
                 return Ok(order);
             }
-            catch (System.Exception ex)
+            catch (global::System.Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
         }
 
         [HttpPost("{id}/cancel")]
-        public async Task<IActionResult> CancelOrder(System.Guid id, [FromBody] string reason)
+        public async Task<IActionResult> CancelOrder(global::System.Guid id, [FromBody] string reason)
         {
             try
             {
                 await _orderService.CancelOrderAsync(id, reason);
                 return Ok(new { message = "Order cancelled successfully." });
             }
-            catch (System.Exception ex)
+            catch (global::System.Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
         }
 
         [HttpPost("{id}/return")]
-        public async Task<IActionResult> ReturnOrder(System.Guid id)
+        public async Task<IActionResult> ReturnOrder(global::System.Guid id)
         {
             try
             {
                 await _orderService.ReturnOrderAsync(id);
                 return Ok(new { message = "Order returned successfully." });
             }
-            catch (System.Exception ex)
+            catch (global::System.Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
         }
 
         [HttpPost("{id}/confirm")]
-        public async Task<IActionResult> ConfirmOrder(System.Guid id, [FromServices] GarageRadiatorERP.Api.Services.Platforms.IPlatformService platformService, [FromBody] string shippingMethod)
+        public async Task<IActionResult> ConfirmOrder(global::System.Guid id, [FromServices] GarageRadiatorERP.Api.Services.Platforms.IPlatformService platformService, [FromBody] string shippingMethod)
         {
             try
             {
                 await platformService.ConfirmOrderOnPlatformAsync(id, shippingMethod);
                 return Ok(new { message = "Order confirmed successfully." });
             }
-            catch (System.Exception ex)
+            catch (global::System.Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }

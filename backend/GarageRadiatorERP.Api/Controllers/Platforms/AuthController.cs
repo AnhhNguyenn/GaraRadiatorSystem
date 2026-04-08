@@ -18,9 +18,9 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEncryptionUtility _encryptionUtility; // Fix Hardcode Static Key (Lỗi 30)
-        private readonly System.Net.Http.IHttpClientFactory _httpClientFactory;
+        private readonly global::System.Net.Http.IHttpClientFactory _httpClientFactory;
 
-        public AuthController(ILogger<AuthController> logger, AppDbContext context, IConfiguration configuration, IEncryptionUtility encryptionUtility, System.Net.Http.IHttpClientFactory httpClientFactory)
+        public AuthController(ILogger<AuthController> logger, AppDbContext context, IConfiguration configuration, IEncryptionUtility encryptionUtility, global::System.Net.Http.IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _context = context;
@@ -122,7 +122,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonResponse = await response.Content.ReadAsStringAsync();
-                    using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
+                    using var doc = global::System.Text.Json.JsonDocument.Parse(jsonResponse);
                     var root = doc.RootElement;
 
                     if (root.TryGetProperty("access_token", out var accessTokenProp) && root.TryGetProperty("refresh_token", out var refreshTokenProp))
@@ -136,7 +136,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                             Store = store,
                             AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
                             RefreshToken = _encryptionUtility.Encrypt(refreshToken),
-                            ExpiresAt = DateTime.UtcNow.AddSeconds(expireIn),
+                            ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
                             UpdatedAt = DateTime.UtcNow
                         };
 
@@ -246,7 +246,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonResponse = await response.Content.ReadAsStringAsync();
-                    using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
+                    using var doc = global::System.Text.Json.JsonDocument.Parse(jsonResponse);
                     var root = doc.RootElement;
                     var dataNode = root.TryGetProperty("data", out var data) ? data : root;
 
@@ -261,7 +261,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                             Store = store,
                             AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
                             RefreshToken = _encryptionUtility.Encrypt(refreshToken),
-                            ExpiresAt = DateTime.UtcNow.AddSeconds(expireIn),
+                            ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
                             UpdatedAt = DateTime.UtcNow
                         };
 
