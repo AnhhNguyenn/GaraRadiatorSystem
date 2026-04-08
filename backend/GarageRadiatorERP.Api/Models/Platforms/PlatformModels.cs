@@ -71,6 +71,8 @@ namespace GarageRadiatorERP.Api.Models.Platforms
         [Required]
         public string Message { get; set; } = string.Empty;
 
+        public string? ImageUrl { get; set; } // Hỗ trợ gửi/nhận hình ảnh qua chat
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsRead { get; set; } = false;
     }

@@ -135,24 +135,33 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 var apiUrl = "https://partner.shopeemobile.com/api/v2/sellerchat/send_message";
                 try
                 {
-                    // Lấy Token thực tế của cửa hàng từ DB
-                    // await client.PostAsJsonAsync(apiUrl, new { to_id = buyerId, message_type = "text", content = new { text = messageText } });
-                    Console.WriteLine($"[Shopee Chat] Đã gọi API gửi tới {buyerId}: {messageText} {(imageUrl != null ? $"(Kèm ảnh: {imageUrl})" : "")}");
+                    var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                    var messageType = imageUrl != null ? "image" : "text";
+                    var content = imageUrl != null ? (object)new { image_url = imageUrl } : (object)new { text = messageText };
+
+                    var response = await client.PostAsJsonAsync(apiUrl, new { to_id = buyerId, message_type = messageType, content = content });
+                    response.EnsureSuccessStatusCode();
+                    Console.WriteLine($"[Shopee Chat] Gửi tin nhắn thành công tới {buyerId}");
                 }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
+                catch (Exception ex) { Console.WriteLine(ex.Message); throw; }
             }
             else if (platform == "TikTok")
             {
                 var apiUrl = "https://open-api.tiktokglobalshop.com/api/im/message/send";
                 try
                 {
-                    // await client.PostAsJsonAsync(apiUrl, new { conversation_id = buyerId, message_type = 1, content = messageText });
-                    Console.WriteLine($"[TikTok Chat] Đã gọi API gửi tới {buyerId}: {messageText} {(imageUrl != null ? $"(Kèm ảnh: {imageUrl})" : "")}");
-                }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
-            }
+                    var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
 
-            await Task.CompletedTask;
+                    var messageType = imageUrl != null ? 2 : 1; // 1: text, 2: image
+                    var response = await client.PostAsJsonAsync(apiUrl, new { conversation_id = buyerId, message_type = messageType, content = imageUrl ?? messageText });
+                    response.EnsureSuccessStatusCode();
+                    Console.WriteLine($"[TikTok Chat] Gửi tin nhắn thành công tới {buyerId}");
+                }
+                catch (Exception ex) { Console.WriteLine(ex.Message); throw; }
+            }
         }
 
         private async Task UpsertOnlineOrderAsync(string platform, string orderId, string status, List<(string platformSku, int quantity, decimal price)> items)
@@ -230,8 +239,11 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             if (orderDetail.Platform == "Shopee")
             {
                 var apiUrl = "https://partner.shopeemobile.com/api/v2/logistics/ship_order";
-                // Lấy Access Token thực tế từ DB để gán vào Header/Body ở Production
-                // await client.PostAsJsonAsync(apiUrl, new { order_sn = orderDetail.PlatformOrderId, dropoff = new { tracking_number = "" } });
+                var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
+                if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                var res = await client.PostAsJsonAsync(apiUrl, new { order_sn = orderDetail.PlatformOrderId, dropoff = new { tracking_number = "" } });
+                res.EnsureSuccessStatusCode();
 
                 orderDetail.CourierName = "SPX Express";
                 orderDetail.ShippingCode = "SPX" + DateTime.UtcNow.Ticks.ToString();
@@ -240,7 +252,11 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             else if (orderDetail.Platform == "TikTok")
             {
                 var apiUrl = "https://open-api.tiktokglobalshop.com/api/logistics/ship/detail";
-                // await client.PostAsJsonAsync(apiUrl, new { order_id = orderDetail.PlatformOrderId, pick_up_type = shippingMethod == "dropoff" ? 1 : 2 });
+                var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
+                if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                var res = await client.PostAsJsonAsync(apiUrl, new { order_id = orderDetail.PlatformOrderId, pick_up_type = shippingMethod == "dropoff" ? 1 : 2 });
+                res.EnsureSuccessStatusCode();
 
                 orderDetail.CourierName = "J&T Express";
                 orderDetail.ShippingCode = "JT" + DateTime.UtcNow.Ticks.ToString();
@@ -272,21 +288,28 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     var apiUrl = "https://partner.shopeemobile.com/api/v2/product/update_stock";
                     try
                     {
-                        // Giả lập call để chống lặp code rác:
-                        // await client.PostAsJsonAsync(apiUrl, new { item_id = long.Parse(mapping.PlatformProductId), stock_list = new[] { new { model_id = long.Parse(mapping.PlatformSkuId ?? "0"), normal_stock = pushStock } } });
+                        var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
+                        if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                        var res = await client.PostAsJsonAsync(apiUrl, new { item_id = long.Parse(mapping.PlatformProductId), stock_list = new[] { new { model_id = long.Parse(mapping.PlatformSkuId ?? "0"), normal_stock = pushStock } } });
+                        res.EnsureSuccessStatusCode();
                         Console.WriteLine($"[SyncStockToPlatform] Đã gọi API Shopee {apiUrl} đẩy tồn kho: {pushStock} cho SkuId: {mapping.PlatformSkuId}");
                     }
-                    catch (Exception ex) { Console.WriteLine(ex.Message); }
+                    catch (Exception ex) { Console.WriteLine(ex.Message); throw; }
                 }
                 else if (mapping.Platform == "TikTok")
                 {
                     var apiUrl = "https://open-api.tiktokglobalshop.com/api/products/stock";
                     try
                     {
-                        // await client.PostAsJsonAsync(apiUrl, new { product_id = mapping.PlatformProductId, skus = new[] { new { id = mapping.PlatformSkuId, stock_quantity = pushStock } } });
+                        var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
+                        if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                        var res = await client.PostAsJsonAsync(apiUrl, new { product_id = mapping.PlatformProductId, skus = new[] { new { id = mapping.PlatformSkuId, stock_quantity = pushStock } } });
+                        res.EnsureSuccessStatusCode();
                         Console.WriteLine($"[SyncStockToPlatform] Đã gọi API TikTok {apiUrl} đẩy tồn kho: {pushStock} cho SkuId: {mapping.PlatformSkuId}");
                     }
-                    catch (Exception ex) { Console.WriteLine(ex.Message); }
+                    catch (Exception ex) { Console.WriteLine(ex.Message); throw; }
                 }
             }
         }

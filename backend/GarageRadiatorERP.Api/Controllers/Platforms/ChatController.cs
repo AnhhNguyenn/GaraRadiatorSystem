@@ -38,7 +38,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         }
 
         [HttpPost("conversations/{id}/messages")]
-        public async Task<ActionResult<PlatformMessage>> SendMessage(Guid id, [FromBody] string messageText)
+        public async Task<ActionResult<PlatformMessage>> SendMessage(Guid id, [FromBody] GarageRadiatorERP.Api.DTOs.Platforms.SendChatMessageDto dto, [FromServices] GarageRadiatorERP.Api.Services.Platforms.IPlatformService platformService)
         {
             var conversation = await _context.PlatformConversations.FindAsync(id);
             if (conversation == null) return NotFound();
@@ -47,19 +47,21 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             {
                 ConversationId = id,
                 Sender = "Seller",
-                Message = messageText,
+                Message = dto.MessageText,
+                ImageUrl = dto.ImageUrl,
                 CreatedAt = DateTime.UtcNow,
                 IsRead = true
             };
 
             _context.PlatformMessages.Add(message);
 
-            conversation.LastMessage = messageText;
+            conversation.LastMessage = dto.MessageText;
             conversation.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
-            // Here we would call the Platform API (Shopee/TikTok) to actually send the message
+            // Gọi Platform Service để gửi API lên Sàn thật
+            await platformService.SendMessageAsync(conversation.Platform, conversation.BuyerId, dto.MessageText, dto.ImageUrl);
 
             return Ok(message);
         }

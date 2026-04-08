@@ -12,11 +12,13 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
     {
         private readonly ILogger<PromotionsController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly Data.AppDbContext _context;
 
-        public PromotionsController(ILogger<PromotionsController> logger, IHttpClientFactory httpClientFactory)
+        public PromotionsController(ILogger<PromotionsController> logger, IHttpClientFactory httpClientFactory, Data.AppDbContext context)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _context = context;
         }
 
         public class CreateVoucherRequest
@@ -40,24 +42,30 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                 var apiUrl = "https://partner.shopeemobile.com/api/v2/voucher/add_voucher";
                 try
                 {
-                    // Lấy Token thực tế của cửa hàng từ DB
-                    // await client.PostAsJsonAsync(apiUrl, new { voucher_name = request.Code, discount_amount = request.DiscountAmount });
-                    _logger.LogInformation($"Đã gọi API Shopee {apiUrl}");
+                    var token = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(_context.PlatformTokens, t => t.Store.ShopId == request.ShopId);
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                    var response = await client.PostAsJsonAsync(apiUrl, new { voucher_name = request.Code, discount_amount = request.DiscountAmount });
+                    response.EnsureSuccessStatusCode();
+                    _logger.LogInformation($"Đã gọi API Shopee {apiUrl} thành công.");
                 }
-                catch (Exception ex) { _logger.LogError(ex.Message); }
+                catch (Exception ex) { _logger.LogError(ex.Message); throw; }
             }
             else if (request.Platform == "TikTok")
             {
                 var apiUrl = "https://open-api.tiktokglobalshop.com/api/promotion/activity/create";
                 try
                 {
-                    // await client.PostAsJsonAsync(apiUrl, new { activity_type = 1, title = request.Code });
-                    _logger.LogInformation($"Đã gọi API TikTok {apiUrl}");
+                    var token = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(_context.PlatformTokens, t => t.Store.PlatformName == "TikTok");
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                    var response = await client.PostAsJsonAsync(apiUrl, new { activity_type = 1, title = request.Code });
+                    response.EnsureSuccessStatusCode();
+                    _logger.LogInformation($"Đã gọi API TikTok {apiUrl} thành công.");
                 }
-                catch (Exception ex) { _logger.LogError(ex.Message); }
+                catch (Exception ex) { _logger.LogError(ex.Message); throw; }
             }
 
-            await Task.Delay(500);
             return Ok(new { message = $"Tạo mã giảm giá {request.Code} thành công trên {request.Platform}" });
         }
 
@@ -72,8 +80,30 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpPost("flash-sale")]
         public async Task<IActionResult> CreateFlashSale([FromBody] CreateFlashSaleRequest request)
         {
+            var client = _httpClientFactory.CreateClient();
             _logger.LogInformation($"Tạo Flash Sale {request.Title} trên {request.Platform}");
-            await Task.Delay(500);
+
+            if (request.Platform == "Shopee")
+            {
+                var apiUrl = "https://partner.shopeemobile.com/api/v2/flash_sale/add_item";
+                try
+                {
+                    var response = await client.PostAsJsonAsync(apiUrl, new { title = request.Title, start_time = request.StartDate, end_time = request.EndDate });
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex) { _logger.LogError(ex.Message); }
+            }
+            else if (request.Platform == "TikTok")
+            {
+                var apiUrl = "https://open-api.tiktokglobalshop.com/api/promotion/flash_sale/create";
+                try
+                {
+                    var response = await client.PostAsJsonAsync(apiUrl, new { title = request.Title });
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex) { _logger.LogError(ex.Message); }
+            }
+
             return Ok(new { message = "Đã lên lịch Flash Sale thành công" });
         }
     }
