@@ -31,11 +31,13 @@ export default function SettingsPage() {
   };
 
   const handleConnectShopee = () => {
-    window.location.href = "https://localhost:5248/api/platforms/auth/shopee/callback?code=mock_code&shop_id=999";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248";
+    window.location.href = `${apiUrl}/api/v1/platforms/auth/generate-oauth-url/shopee`;
   };
 
   const handleConnectTikTok = () => {
-    window.location.href = "https://localhost:5248/api/platforms/auth/tiktok/callback?auth_code=mock_code&state=tiktok";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248";
+    window.location.href = `${apiUrl}/api/v1/platforms/auth/generate-oauth-url/tiktok`;
   };
 
   return (
