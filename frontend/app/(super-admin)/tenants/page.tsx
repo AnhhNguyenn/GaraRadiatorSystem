@@ -122,6 +122,25 @@ export default function TenantsPage() {
                 <Input name="months" type="number" defaultValue="12" required className="bg-slate-50 border-slate-200 text-slate-900 font-bold" />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-1">Loại hình KD *</label>
+                <select name="businessModel" className="w-full h-10 rounded-lg bg-slate-50 border-slate-200 text-slate-900 font-bold px-3 outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="Corporate">Công ty / Doanh nghiệp</option>
+                  <option value="Household">Hộ Kinh Doanh</option>
+                  <option value="Personal">Cá nhân</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-1">Phương pháp thuế *</label>
+                <select name="taxMethod" className="w-full h-10 rounded-lg bg-slate-50 border-slate-200 text-slate-900 font-bold px-3 outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="Deduction">Khấu trừ</option>
+                  <option value="Direct">Trực tiếp</option>
+                </select>
+              </div>
+            </div>
+
             <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100">
               <Button type="button" variant="ghost" onClick={() => setIsOnboardModalOpen(false)} className="text-slate-500">Hủy</Button>
               <Button type="submit" className="bg-primary text-white font-bold px-6">Tạo Gara (Khởi tạo DB)</Button>

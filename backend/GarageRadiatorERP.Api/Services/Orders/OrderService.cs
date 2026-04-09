@@ -25,6 +25,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
         private readonly Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> _hubContext;
         private readonly GarageRadiatorERP.Api.Services.System.ITenantProvider _tenantProvider;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+        private readonly GarageRadiatorERP.Api.Services.System.ISystemConfigurationService _configService;
 
         private readonly AutoMapper.IMapper _mapper;
         private readonly Platforms.IPlatformService _platformService;
@@ -34,6 +35,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
             Microsoft.AspNetCore.SignalR.IHubContext<GarageRadiatorERP.Api.Hubs.ChatHub> hubContext,
             GarageRadiatorERP.Api.Services.System.ITenantProvider tenantProvider,
             Microsoft.Extensions.Configuration.IConfiguration configuration,
+            GarageRadiatorERP.Api.Services.System.ISystemConfigurationService configService,
             AutoMapper.IMapper mapper,
             Platforms.IPlatformService platformService)
         {
@@ -41,6 +43,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
             _hubContext = hubContext;
             _tenantProvider = tenantProvider;
             _configuration = configuration;
+            _configService = configService;
             _mapper = mapper;
             _platformService = platformService;
         }
@@ -79,6 +82,20 @@ namespace GarageRadiatorERP.Api.Services.Orders
             // Gộp danh sách truy vấn Batch để tránh N+1 Query (Lỗi 20) và lỗi Query Mù (Lỗi 13)
             var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
 
+            var tenantId = _tenantProvider.GetTenantId();
+            var platformStore = await _context.PlatformStores.FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+            string businessModel = platformStore?.BusinessModel ?? "Household";
+
+            var taxRules = await _context.TaxConfigurations
+                .Where(t => t.BusinessModel == businessModel)
+                .ToListAsync(cancellationToken);
+
+            var taxDict = taxRules.ToDictionary(t => t.ProductCategory, t => t);
+
+            int minStockAlertConfig = await _configService.GetValueAsync<int>("Inventory.DefaultMinStockAlert");
+            int syncLowStockVal = await _configService.GetValueAsync<int>("Inventory.LowStockSyncPlatformValue");
+            if (minStockAlertConfig <= 0) minStockAlertConfig = 5;
+
             int maxRetries = 3;
             for (int retry = 0; retry < maxRetries; retry++)
             {
@@ -95,6 +112,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                 // Nhóm cấu hình MinStockLevel (Lỗi 44)
                 var products = await _context.Products
+                    .Include(p => p.Category)
                     .Where(p => productIds.Contains(p.Id))
                     .ToDictionaryAsync(p => p.Id, cancellationToken);
 
@@ -131,6 +149,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                     decimal totalAmount = 0;
                     decimal totalCost = 0;
+                    decimal totalGoodsValue = 0;
+                    decimal totalVatAmount = 0;
+                    decimal totalPitAmount = 0;
 
                     foreach (var itemDto in dto.Items)
                     {
@@ -149,7 +170,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                         // Nếu sản phẩm này hoàn toàn chưa từng được nhập kho bao giờ (historical cost = 0)
                         // Lúc này fallback về StandardCost. Nếu StandardCost cũng bằng 0 thì throw error không cho bán.
-                        if (fallbackCostPrice == 0 && products.TryGetValue(itemDto.ProductId, out var productObj) && productObj != null)
+                        var productObj = products.TryGetValue(itemDto.ProductId, out var p) ? p : null;
+
+                        if (fallbackCostPrice == 0 && productObj != null)
                         {
                             if (productObj.StandardCost > 0)
                             {
@@ -159,6 +182,14 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             {
                                 throw new InvalidOperationException($"Không thể tạo đơn: Chưa xác định được giá vốn cho SKU {productObj.SKU}. Vui lòng nhập kho hoặc cập nhật Giá vốn tiêu chuẩn cho sản phẩm");
                             }
+                        }
+
+                        decimal currentVatRate = 0;
+                        decimal currentPitRate = 0;
+                        if (productObj != null && productObj.Category != null && taxDict.TryGetValue(productObj.Category.Name, out var taxConfig))
+                        {
+                            currentVatRate = taxConfig.VatRate;
+                            currentPitRate = taxConfig.PitRate;
                         }
 
                         foreach (var batch in batchesToDeduct)
@@ -171,6 +202,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             batch.RemainingQuantity -= qtyFromThisBatch;
                             qtyToFulfill -= qtyFromThisBatch;
 
+                            decimal lineVat = (qtyFromThisBatch * itemDto.UnitPrice) * (currentVatRate / 100m);
+                            decimal linePit = (qtyFromThisBatch * itemDto.UnitPrice) * (currentPitRate / 100m);
+
                             var orderItem = new OrderItem
                             {
                                 Order = order,
@@ -179,7 +213,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 Quantity = qtyFromThisBatch,
                                 UnitPrice = itemDto.UnitPrice,
                                 CostPrice = batch.CostPrice,
-                                BackorderQuantity = 0
+                                BackorderQuantity = 0,
+                                TaxRate = currentVatRate,
+                                TaxAmount = lineVat
                             };
                             order.Items.Add(orderItem);
 
@@ -196,12 +232,15 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             _context.InventoryTransactions.Add(transaction);
 
-                            totalAmount += (qtyFromThisBatch * itemDto.UnitPrice);
+                            totalAmount += (qtyFromThisBatch * itemDto.UnitPrice) + lineVat;
                             totalCost += (qtyFromThisBatch * batch.CostPrice);
+                            totalGoodsValue += (qtyFromThisBatch * itemDto.UnitPrice);
+                            totalVatAmount += lineVat;
+                            totalPitAmount += linePit;
 
                             // Fix Spam & Ngưỡng báo cáo tồn kho (Lỗi 42, Lỗi 44)
                             int currentTotalStock = allBatches.Where(b => b.ProductId == itemDto.ProductId).Sum(b => b.RemainingQuantity);
-                            int minStockLevel = products.TryGetValue(itemDto.ProductId, out var prod) ? prod.MinStockLevel : 3;
+                            int minStockLevel = products.TryGetValue(itemDto.ProductId, out var prod) ? prod.MinStockLevel : minStockAlertConfig;
 
                             if (currentTotalStock < minStockLevel)
                             {
@@ -215,11 +254,14 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             }
 
                             // Gọi đẩy tồn kho sau khi đã trừ đi số lượng bán
-                            await _platformService.SyncStockToPlatformAsync(itemDto.ProductId, currentTotalStock);
+                            await _platformService.SyncStockToPlatformAsync(itemDto.ProductId, currentTotalStock < minStockLevel ? syncLowStockVal : currentTotalStock);
                         }
 
                         if (qtyToFulfill > 0)
                         {
+                            decimal lineVat = (qtyToFulfill * itemDto.UnitPrice) * (currentVatRate / 100m);
+                            decimal linePit = (qtyToFulfill * itemDto.UnitPrice) * (currentPitRate / 100m);
+
                             // Fix bán âm gán giá vốn = 0 (Lỗi 9)
                             var backOrderItem = new OrderItem
                             {
@@ -228,7 +270,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 Quantity = qtyToFulfill,
                                 BackorderQuantity = qtyToFulfill,
                                 UnitPrice = itemDto.UnitPrice,
-                                CostPrice = fallbackCostPrice // Giá vốn trung bình/lô cuối thay vì 0
+                                CostPrice = fallbackCostPrice, // Giá vốn trung bình/lô cuối thay vì 0
+                                TaxRate = currentVatRate,
+                                TaxAmount = lineVat
                             };
                             order.Items.Add(backOrderItem);
 
@@ -245,13 +289,19 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             _context.InventoryTransactions.Add(negativeTransaction);
 
-                            totalAmount += (qtyToFulfill * itemDto.UnitPrice);
+                            totalAmount += (qtyToFulfill * itemDto.UnitPrice) + lineVat;
                             totalCost += (qtyToFulfill * fallbackCostPrice);
+                            totalGoodsValue += (qtyToFulfill * itemDto.UnitPrice);
+                            totalVatAmount += lineVat;
+                            totalPitAmount += linePit;
                         }
                     }
 
                     order.TotalAmount = totalAmount;
                     order.TotalCost = totalCost;
+                    order.TotalGoodsValue = totalGoodsValue;
+                    order.TotalVatAmount = totalVatAmount;
+                    order.TotalPitAmount = totalPitAmount;
                     order.PlatformFee = 0;
                     order.ShippingFee = 0;
                     order.ActualReceived = totalAmount;
@@ -262,8 +312,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     await transactionDbContext.CommitAsync(cancellationToken);
 
                     // Send Notifications after Commit (Lỗi 43)
-                    var tenantId = _tenantProvider.GetTenantId();
-                    var adminGroupName = tenantId.HasValue ? $"InventoryAdmins_{tenantId.Value}" : "InventoryAdmins";
+                    var currentTenantId = _tenantProvider.GetTenantId();
+                    var adminGroupName = currentTenantId.HasValue ? $"InventoryAdmins_{currentTenantId.Value}" : "InventoryAdmins";
 
                     foreach (var notif in notificationsToSend)
                     {

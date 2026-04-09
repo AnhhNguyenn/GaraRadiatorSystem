@@ -41,6 +41,20 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-10 max-w-5xl pb-10">
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md mx-2">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <Shield className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-yellow-700 font-bold">
+              Thông tin cấu hình Pháp lý (Dành cho Hóa đơn & Thuế) được quản lý bởi Super Admin.
+              <br />
+              Loại hình kinh doanh: <span className="text-black font-black">Chưa xác định (Liên hệ Admin)</span> | Phương pháp Thuế: <span className="text-black font-black">Chưa xác định (Liên hệ Admin)</span>
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="px-2">
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Cài đặt hệ thống</h1>
         <p className="text-sm font-medium text-slate-500">Cấu hình thông tin cửa hàng, máy in và kết nối nền tảng thương mại.</p>

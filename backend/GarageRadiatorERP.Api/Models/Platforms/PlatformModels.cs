@@ -97,6 +97,12 @@ namespace GarageRadiatorERP.Api.Models.Platforms
 
         public bool IsActive { get; set; } = true;
 
+        [StringLength(50)]
+        public string BusinessModel { get; set; } = "Household"; // Corporate, Household, Personal
+
+        [StringLength(50)]
+        public string TaxMethod { get; set; } = "Direct"; // Deduction (Khấu trừ), Direct (Trực tiếp)
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<PlatformToken> Tokens { get; set; } = new List<PlatformToken>();

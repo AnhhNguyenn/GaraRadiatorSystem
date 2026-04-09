@@ -63,4 +63,26 @@ namespace GarageRadiatorERP.Api.Models.Finance
         public decimal IncomeTax { get; set; }
         public decimal TotalTax { get; set; }
     }
+
+    public class TaxConfiguration : GarageRadiatorERP.Api.Models.System.ITenantEntity
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid TenantId { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string BusinessModel { get; set; } = "Household";
+
+        [Required]
+        [StringLength(100)]
+        public string ProductCategory { get; set; } = string.Empty;
+
+        public decimal VatRate { get; set; } // %
+
+        public decimal PitRate { get; set; } // %
+
+        public decimal CitRate { get; set; } // %
+    }
 }

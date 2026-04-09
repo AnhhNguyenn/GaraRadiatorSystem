@@ -82,6 +82,15 @@ namespace GarageRadiatorERP.Api.Models.Orders
         [Column(TypeName = "decimal(18,2)")]
         public decimal Profit { get; set; } // Tiền lời = ActualReceived - Cost - Discount
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalGoodsValue { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalVatAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalPitAmount { get; set; }
+
         [StringLength(1000)]
         public string? Notes { get; set; } // Ghi chú đơn
 
@@ -116,6 +125,12 @@ namespace GarageRadiatorERP.Api.Models.Orders
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal CostPrice { get; set; } // Kế thừa từ CostPrice của Batch xuất ra
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TaxRate { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TaxAmount { get; set; }
     }
 
     public class OnlineOrderDetails
