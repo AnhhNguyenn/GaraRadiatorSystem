@@ -28,7 +28,10 @@ namespace GarageRadiatorERP.Api.Data
 
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
 
-            if (!await dbContext.SystemSettings.AnyAsync())
+            bool settingsExist = false;
+            try { settingsExist = await dbContext.SystemSettings.AnyAsync(); } catch { }
+
+            if (!settingsExist)
             {
                 var defaultSettings = new[]
                 {
@@ -44,7 +47,10 @@ namespace GarageRadiatorERP.Api.Data
                 await dbContext.SaveChangesAsync();
             }
 
-            if (!await dbContext.TaxConfigurations.AnyAsync())
+            bool taxesExist = false;
+            try { taxesExist = await dbContext.TaxConfigurations.AnyAsync(); } catch { }
+
+            if (!taxesExist)
             {
                 var defaultTaxes = new[]
                 {
@@ -57,7 +63,10 @@ namespace GarageRadiatorERP.Api.Data
                 await dbContext.SaveChangesAsync();
             }
 
-            var usersExist = await userManager.Users.IgnoreQueryFilters().AnyAsync();
+            var usersExist = false;
+            try {
+                usersExist = await userManager.Users.IgnoreQueryFilters().AnyAsync();
+            } catch { } // Bỏ qua nếu có lỗi schema liên đới lúc seed
 
             if (!usersExist)
             {
