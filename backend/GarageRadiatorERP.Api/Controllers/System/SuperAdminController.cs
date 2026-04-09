@@ -52,6 +52,26 @@ namespace GarageRadiatorERP.Api.Controllers.System
         [HttpPut("settings")]
         public async Task<IActionResult> UpdateSystemSettings([FromBody] List<UpdateSettingRequest> request)
         {
+            // Lỗi số 2 - (LỖ HỔNG VALIDATION CẤU HÌNH)
+            foreach (var item in request)
+            {
+                if (item.SettingKey.StartsWith("Finance.") || item.SettingKey.StartsWith("Inventory.") || item.SettingKey.StartsWith("Billing."))
+                {
+                    if (item.SettingKey != "System.MaintenanceMode" && !decimal.TryParse(item.SettingValue, out _))
+                    {
+                        return BadRequest($"Validation failed: Value '{item.SettingValue}' for key '{item.SettingKey}' must be a valid number.");
+                    }
+                }
+
+                if (item.SettingKey == "System.MaintenanceMode")
+                {
+                    if (!bool.TryParse(item.SettingValue, out _))
+                    {
+                        return BadRequest($"Validation failed: Value '{item.SettingValue}' for key '{item.SettingKey}' must be true or false.");
+                    }
+                }
+            }
+
             var allSettings = await _context.SystemSettings.ToDictionaryAsync(s => s.SettingKey);
             foreach(var item in request)
             {

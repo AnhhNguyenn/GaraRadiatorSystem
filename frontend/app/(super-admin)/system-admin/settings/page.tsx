@@ -21,7 +21,8 @@ export default function SuperAdminSettingsPage() {
   const fetchSettings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/v1/system-admin/settings", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -39,8 +40,9 @@ export default function SuperAdminSettingsPage() {
     try {
       const token = localStorage.getItem("token");
       const payload = settings.map(s => ({ settingKey: s.settingKey, settingValue: s.settingValue }));
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-      const res = await fetch("http://localhost:5000/api/v1/system-admin/settings", {
+      const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
