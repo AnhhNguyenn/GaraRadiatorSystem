@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace GarageRadiatorERP.Api.Hubs
 {
+    [Authorize]
     public class ChatHub : Hub
     {
         private readonly ILogger<ChatHub> _logger;
@@ -48,6 +51,7 @@ namespace GarageRadiatorERP.Api.Hubs
         }
 
         // Broadcast a system-wide notification to all connected clients (e.g., POS screens)
+        [Authorize(Roles = "SuperAdmin,TenantAdmin")]
         public async Task BroadcastNotification(string message, string type = "info")
         {
             // Tránh Spam Clients.All (Lỗi 42)

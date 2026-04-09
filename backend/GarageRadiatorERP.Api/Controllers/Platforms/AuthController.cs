@@ -143,16 +143,27 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                         var refreshToken = refreshTokenProp.GetString() ?? "";
                         var expireIn = root.TryGetProperty("expire_in", out var expireProp) ? expireProp.GetInt32() : 14400; // Mặc định 4 tiếng nếu không có
 
-                        var token = new PlatformToken
+                        var existingToken = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.StoreId == store.Id);
+                        if (existingToken == null)
                         {
-                            Store = store,
-                            AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
-                            RefreshToken = _encryptionUtility.Encrypt(refreshToken),
-                            ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
-                            UpdatedAt = DateTime.UtcNow
-                        };
+                            var token = new PlatformToken
+                            {
+                                Store = store,
+                                AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
+                                RefreshToken = _encryptionUtility.Encrypt(refreshToken),
+                                ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            _context.PlatformTokens.Add(token);
+                        }
+                        else
+                        {
+                            existingToken.AccessToken = _encryptionUtility.Encrypt(accessToken);
+                            existingToken.RefreshToken = _encryptionUtility.Encrypt(refreshToken);
+                            existingToken.ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn);
+                            existingToken.UpdatedAt = DateTime.UtcNow;
+                        }
 
-                        _context.PlatformTokens.Add(token);
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -325,15 +336,26 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     }
                     await _context.SaveChangesAsync(); // Cần save để lấy Id gắn cho Token
 
-                    var token = new PlatformToken
+                    var existingToken = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.StoreId == store.Id);
+                    if (existingToken == null)
                     {
-                        Store = store,
-                        AccessToken = _encryptionUtility.Encrypt(accessToken),
-                        RefreshToken = _encryptionUtility.Encrypt(refreshToken),
-                        ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.PlatformTokens.Add(token);
+                        var token = new PlatformToken
+                        {
+                            Store = store,
+                            AccessToken = _encryptionUtility.Encrypt(accessToken),
+                            RefreshToken = _encryptionUtility.Encrypt(refreshToken),
+                            ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.PlatformTokens.Add(token);
+                    }
+                    else
+                    {
+                        existingToken.AccessToken = _encryptionUtility.Encrypt(accessToken);
+                        existingToken.RefreshToken = _encryptionUtility.Encrypt(refreshToken);
+                        existingToken.ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn);
+                        existingToken.UpdatedAt = DateTime.UtcNow;
+                    }
                 }
 
                 await _context.SaveChangesAsync();
