@@ -29,7 +29,7 @@ namespace GarageRadiatorERP.Api.Data
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
 
             bool settingsExist = false;
-            try { settingsExist = await dbContext.SystemSettings.AnyAsync(); } catch { }
+            try { settingsExist = await dbContext.SystemSettings.IgnoreQueryFilters().AnyAsync(); } catch { }
 
             if (!settingsExist)
             {
@@ -48,7 +48,7 @@ namespace GarageRadiatorERP.Api.Data
             }
 
             bool taxesExist = false;
-            try { taxesExist = await dbContext.TaxConfigurations.AnyAsync(); } catch { }
+            try { taxesExist = await dbContext.TaxConfigurations.IgnoreQueryFilters().AnyAsync(); } catch { }
 
             if (!taxesExist)
             {

@@ -17,7 +17,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     <div className="bg-slate-900 min-h-screen text-slate-50">
       <div className="border-b border-slate-800 p-4 flex justify-between items-center bg-slate-950">
         <h1 className="font-black tracking-widest uppercase text-emerald-400">⚡ Super Admin Portal</h1>
-        <div className="text-xs font-bold text-slate-400">admin@garageradiator.com</div>
+        <div className="text-xs font-bold text-slate-400">Super Administrator</div>
       </div>
       <div className="p-8">
         {children}
