@@ -47,7 +47,10 @@ namespace GarageRadiatorERP.Api.Controllers.System
                 return Ok(new { requirePasswordChange = true, userId = user.Id, message = "Bạn phải đổi mật khẩu khởi tạo trước khi đăng nhập." });
             }
 
-            return Ok(new { accessToken = await GenerateJwtToken(user), requirePasswordChange = false });
+            var token = await GenerateJwtToken(user);
+            SetTokenCookie(token);
+
+            return Ok(new { requirePasswordChange = false });
         }
 
         public class ChangePasswordRequest
@@ -69,7 +72,10 @@ namespace GarageRadiatorERP.Api.Controllers.System
             user.MustChangePassword = false;
             await _userManager.UpdateAsync(user);
 
-            return Ok(new { accessToken = await GenerateJwtToken(user), requirePasswordChange = false });
+            var token = await GenerateJwtToken(user);
+            SetTokenCookie(token);
+
+            return Ok(new { requirePasswordChange = false });
         }
 
         private async Task<string> GenerateJwtToken(ApplicationUser user)
@@ -106,6 +112,38 @@ namespace GarageRadiatorERP.Api.Controllers.System
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
+        }
+
+        private void SetTokenCookie(string token)
+        {
+            var cookieOptions = new Microsoft.AspNetCore.Http.CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, // Sử dụng HTTPS trong production
+                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddHours(24)
+            };
+            Response.Cookies.Append("access_token", token, cookieOptions);
+        }
+
+        [HttpGet("me")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public IActionResult GetCurrentUser()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var email = User.FindFirstValue(ClaimTypes.Name);
+            var tenantId = User.FindFirstValue("TenantId");
+            var role = User.FindFirstValue(ClaimTypes.Role);
+
+            if (userId == null) return Unauthorized();
+
+            return Ok(new
+            {
+                Id = userId,
+                Email = email,
+                TenantId = tenantId,
+                Role = role
+            });
         }
     }
 }

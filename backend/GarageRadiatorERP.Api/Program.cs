@@ -19,7 +19,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
     .WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter()) // Ghi log ra JSON cho Docker thay vì file text
-    .WriteTo.Async(a => a.File("logs/erp-log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30)));
+    .WriteTo.Async(a => a.File(new Serilog.Formatting.Json.JsonFormatter(), "logs/erp-log-.json", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30)));
 
 // Configure Forwarded Headers for reverse proxy
 builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
@@ -85,15 +85,20 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJs", policy =>
     {
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 
-        // Hardcode CORS - Cản trở mở rộng kinh doanh B2B (Dùng Wildcard Validation)
         policy.SetIsOriginAllowed(origin =>
             {
                 var uri = new Uri(origin);
                 var host = uri.Host;
-                return host.EndsWith(".garageradiator.com") || host == "localhost" || host == "127.0.0.1";
-            })
 
+                if (builder.Environment.IsDevelopment() && (host == "localhost" || host == "127.0.0.1"))
+                {
+                    return true;
+                }
+
+                return allowedOrigins.Contains(origin);
+            })
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -164,6 +169,19 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtSecretKey))
+    };
+
+    // Đọc JWT từ HttpOnly Cookie thay vì Authorization Header
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            if (context.Request.Cookies.TryGetValue("access_token", out var accessToken))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 builder.Services.AddAuthorization();

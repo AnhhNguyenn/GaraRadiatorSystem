@@ -7,14 +7,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    // Basic MVP authorization check
-    const token = localStorage.getItem('access_token');
-    // Decode token to verify role in real world. For MVP mock, we just check existence
-    if (!token) {
-      router.push('/login');
-    } else {
-      setAuthorized(true);
-    }
+    // Để AuthError event handle việc redirect
+    setAuthorized(true);
   }, [router]);
 
   if (!authorized) return <div className="p-10 text-center">Đang kiểm tra quyền truy cập...</div>;

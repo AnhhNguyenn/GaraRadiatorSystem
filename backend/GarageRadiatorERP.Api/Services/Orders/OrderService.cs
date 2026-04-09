@@ -96,6 +96,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
             int syncLowStockVal = await _configService.GetValueAsync<int>("Inventory.LowStockSyncPlatformValue");
             if (minStockAlertConfig <= 0) minStockAlertConfig = 5;
 
+            // Fallback tax rate if category is null
+            decimal defaultVatRate = await _configService.GetValueAsync<decimal>("Finance.DefaultVAT");
+
             int maxRetries = 3;
             for (int retry = 0; retry < maxRetries; retry++)
             {
@@ -184,7 +187,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             }
                         }
 
-                        decimal currentVatRate = 0;
+                        decimal currentVatRate = defaultVatRate;
                         decimal currentPitRate = 0;
                         if (productObj != null && productObj.Category != null && taxDict.TryGetValue(productObj.Category.Name, out var taxConfig))
                         {
