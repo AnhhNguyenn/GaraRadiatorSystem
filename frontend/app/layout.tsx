@@ -4,6 +4,7 @@ import { LayoutWrapper } from '@/components/layout-wrapper';
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from '../components/AuthProvider';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -17,9 +18,11 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="vi" className={cn("font-sans", geist.variable)}>
       <body className="bg-slate-50 text-slate-900" suppressHydrationWarning>
         <Toaster position="top-right" />
-        <LayoutWrapper>
-          {children}
-        </LayoutWrapper>
+        <AuthProvider>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -38,16 +38,15 @@ export default function SuperAdminSettingsPage() {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem("token");
       const payload = settings.map(s => ({ settingKey: s.settingKey, settingValue: s.settingValue }));
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
       const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Content-Type": "application/json"
         },
+        credentials: "include",
         body: JSON.stringify(payload)
       });
 

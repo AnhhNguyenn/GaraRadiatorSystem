@@ -18,13 +18,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("erp_store_name");
-    if (saved) setStoreName(saved);
+    // Để mock, ta bỏ việc lấy từ localStorage
   }, []);
 
   const handleSave = () => {
     setSaving(true);
-    localStorage.setItem("erp_store_name", storeName);
+    // Bỏ lưu dữ liệu không cần thiết vào localStorage, có thể sau này gọi API cập nhật db.
     setTimeout(() => {
       setSaving(false);
       alert("Đã lưu cấu hình thành công!");

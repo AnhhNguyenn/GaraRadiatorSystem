@@ -230,7 +230,16 @@ namespace GarageRadiatorERP.Api.Controllers.System
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
 
-            return Ok(new { accessToken = tokenString });
+            var cookieOptions = new Microsoft.AspNetCore.Http.CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, // Sử dụng HTTPS trong production
+                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddHours(1)
+            };
+            Response.Cookies.Append("access_token", tokenString, cookieOptions);
+
+            return Ok(new { message = "Impersonation successful" });
         }
 
         private string GenerateRandomPassword()

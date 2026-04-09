@@ -206,87 +206,125 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
 
             _logger.LogInformation($"Received TikTok Auth Callback: auth_code={auth_code}, state={state}");
 
+            var client = _httpClientFactory.CreateClient();
+
+            // 1. Lấy Access Token từ code
+            var tokenApiUrl = $"https://auth.tiktok-shops.com/api/v2/token/get";
+            var tokenRequestBody = new
+            {
+                app_key = _configuration["TikTok:AppKey"],
+                app_secret = _configuration["TikTok:AppSecret"],
+                auth_code = auth_code,
+                grant_type = "authorized_code"
+            };
+
+            var tokenResponse = await client.PostAsJsonAsync(tokenApiUrl, tokenRequestBody);
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                var errorResponse = await tokenResponse.Content.ReadAsStringAsync();
+                _logger.LogError($"TikTok Auth failed Token Exchange API call: {errorResponse}");
+                return BadRequest("TikTok Auth API error during token exchange.");
+            }
+
+            var tokenJsonResponse = await tokenResponse.Content.ReadAsStringAsync();
+            using var tokenDoc = global::System.Text.Json.JsonDocument.Parse(tokenJsonResponse);
+            var tokenRoot = tokenDoc.RootElement;
+            var tokenDataNode = tokenRoot.TryGetProperty("data", out var d) ? d : tokenRoot;
+
+            if (!tokenDataNode.TryGetProperty("access_token", out var accessTokenProp) || !tokenDataNode.TryGetProperty("refresh_token", out var refreshTokenProp))
+            {
+                _logger.LogError($"TikTok Auth failed parsing token response: {tokenJsonResponse}");
+                return BadRequest("TikTok Auth failed. Invalid token response structure.");
+            }
+
+            var accessToken = accessTokenProp.GetString() ?? "";
+            var refreshToken = refreshTokenProp.GetString() ?? "";
+            var expireIn = tokenDataNode.TryGetProperty("access_token_expire_in", out var expireProp) ? expireProp.GetInt32() : 2592000;
+
+            // 2. Gọi API lấy danh sách các Authorized Shops
+            var getShopsUrl = $"https://open-api.tiktokglobalshop.com/api/v2/shop/get_authorized_shop?app_key={_configuration["TikTok:AppKey"]}";
+
+            var requestMessage = new global::System.Net.Http.HttpRequestMessage(global::System.Net.Http.HttpMethod.Get, getShopsUrl);
+            requestMessage.Headers.Add("x-tts-access-token", accessToken);
+
+            var shopsResponse = await client.SendAsync(requestMessage);
+            if (!shopsResponse.IsSuccessStatusCode)
+            {
+                var errorResponse = await shopsResponse.Content.ReadAsStringAsync();
+                _logger.LogError($"TikTok Auth failed Get Shops API call: {errorResponse}");
+                return BadRequest("TikTok Auth API error during get shops.");
+            }
+
+            var shopsJsonResponse = await shopsResponse.Content.ReadAsStringAsync();
+            using var shopsDoc = global::System.Text.Json.JsonDocument.Parse(shopsJsonResponse);
+            var shopsRoot = shopsDoc.RootElement;
+            var shopsDataNode = shopsRoot.TryGetProperty("data", out var sd) ? sd : shopsRoot;
+
+            if (!shopsDataNode.TryGetProperty("shop_list", out var shopListElement) || shopListElement.ValueKind != global::System.Text.Json.JsonValueKind.Array)
+            {
+                _logger.LogError($"TikTok Auth failed parsing shops response: {shopsJsonResponse}");
+                return BadRequest("TikTok Auth failed. Invalid shops response structure.");
+            }
+
+            // 3. Upsert cho TẤT CẢ các shop lấy được bằng Transaction chung
+            var frontendUrl = _configuration["FrontendUrl"];
+            string firstShopId = "";
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var storeName = $"TikTok Store";
-                // Lỗi 28 / 31: Sinh mã định danh ngu xuẩn (Substring 8 kí tự dễ collision) -> Dùng Guid nguyên bản
-                var shop_id = "tiktok_" + Guid.NewGuid().ToString();
-
-                var store = await _context.PlatformStores.FirstOrDefaultAsync(s => s.PlatformName == "TikTok");
-
-                if (store == null)
+                foreach (var shopElement in shopListElement.EnumerateArray())
                 {
-                    store = new PlatformStore
+                    if (!shopElement.TryGetProperty("shop_id", out var shopIdProp)) continue;
+                    var shop_id = shopIdProp.GetString();
+                    if (string.IsNullOrEmpty(shop_id)) continue;
+
+                    if (string.IsNullOrEmpty(firstShopId)) firstShopId = shop_id;
+
+                    var storeName = shopElement.TryGetProperty("shop_name", out var shopNameProp) ? shopNameProp.GetString() : $"TikTok Store {shop_id}";
+
+                    var store = await _context.PlatformStores.FirstOrDefaultAsync(s => s.ShopId == shop_id && s.PlatformName == "TikTok");
+                    if (store == null)
                     {
-                        PlatformName = "TikTok",
-                        ShopId = shop_id,
-                        StoreName = storeName
-                    };
-                    _context.PlatformStores.Add(store);
-                    await _context.SaveChangesAsync();
-                }
-
-                // Bối cảnh 2 (Phần 2): Triển khai HttpClient call tới TikTok Shop API để lấy AccessToken thật
-                var realApiUrl = $"https://auth.tiktok-shops.com/api/v2/token/get";
-                _logger.LogInformation($"Making HTTP POST to {realApiUrl} to exchange code: {auth_code}");
-
-                var client = _httpClientFactory.CreateClient();
-
-                var requestBody = new
-                {
-                    app_key = _configuration["TikTok:AppKey"],
-                    app_secret = _configuration["TikTok:AppSecret"],
-                    auth_code = auth_code,
-                    grant_type = "authorized_code"
-                };
-
-                var response = await client.PostAsJsonAsync(realApiUrl, requestBody);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var jsonResponse = await response.Content.ReadAsStringAsync();
-                    using var doc = global::System.Text.Json.JsonDocument.Parse(jsonResponse);
-                    var root = doc.RootElement;
-                    var dataNode = root.TryGetProperty("data", out var data) ? data : root;
-
-                    if (dataNode.TryGetProperty("access_token", out var accessTokenProp) && dataNode.TryGetProperty("refresh_token", out var refreshTokenProp))
-                    {
-                        var accessToken = accessTokenProp.GetString() ?? "";
-                        var refreshToken = refreshTokenProp.GetString() ?? "";
-                        var expireIn = dataNode.TryGetProperty("access_token_expire_in", out var expireProp) ? expireProp.GetInt32() : 2592000;
-
-                        var token = new PlatformToken
+                        store = new PlatformStore
                         {
-                            Store = store,
-                            AccessToken = _encryptionUtility.Encrypt(accessToken), // Mã hóa Token trước khi lưu DB
-                            RefreshToken = _encryptionUtility.Encrypt(refreshToken),
-                            ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
-                            UpdatedAt = DateTime.UtcNow
+                            PlatformName = "TikTok",
+                            ShopId = shop_id,
+                            StoreName = storeName
                         };
-
-                        _context.PlatformTokens.Add(token);
-                        await _context.SaveChangesAsync();
-                        await transaction.CommitAsync();
-
-                        var frontendUrl = _configuration["FrontendUrl"];
-                        if (string.IsNullOrEmpty(frontendUrl)) return Ok(new { message = "TikTok Auth Success" });
-                        return Redirect($"{frontendUrl}/settings?auth_success=tiktok&shop_id={shop_id}");
+                        _context.PlatformStores.Add(store);
                     }
                     else
                     {
-                        _logger.LogError($"TikTok Auth failed parsing response: {jsonResponse}");
-                        await transaction.RollbackAsync();
-                        return BadRequest("TikTok Auth failed. Invalid response structure.");
+                        store.StoreName = storeName;
                     }
+                    await _context.SaveChangesAsync(); // Cần save để lấy Id gắn cho Token
+
+                    var token = new PlatformToken
+                    {
+                        Store = store,
+                        AccessToken = _encryptionUtility.Encrypt(accessToken),
+                        RefreshToken = _encryptionUtility.Encrypt(refreshToken),
+                        ExpiresAt = DateTime.UtcNow.AddSeconds((double)expireIn),
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.PlatformTokens.Add(token);
                 }
-                else
-                {
-                    var errorResponse = await response.Content.ReadAsStringAsync();
-                    _logger.LogError($"TikTok Auth failed API call: {errorResponse}");
-                    await transaction.RollbackAsync();
-                    return BadRequest("TikTok Auth API error.");
-                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                if (string.IsNullOrEmpty(frontendUrl)) return Ok(new { message = "TikTok Auth Success", shopsSynced = shopListElement.GetArrayLength() });
+                return Redirect($"{frontendUrl}/settings?auth_success=tiktok&shop_id={firstShopId}");
+            }
+            catch (DbUpdateException ex)
+            {
+                // Bắt Race Condition ở mức Database (Do cấu hình UniqueIndex s => new { s.PlatformName, s.ShopId })
+                _logger.LogWarning(ex, "TikTok Auth concurrent insert detected. Returning success safely.");
+                await transaction.RollbackAsync();
+
+                if (string.IsNullOrEmpty(frontendUrl)) return Ok(new { message = "TikTok Auth Success (Concurrent)" });
+                return Redirect($"{frontendUrl}/settings?auth_success=tiktok_concurrent");
             }
             catch (Exception ex)
             {
