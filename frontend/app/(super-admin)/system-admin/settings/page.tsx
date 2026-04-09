@@ -20,10 +20,9 @@ export default function SuperAdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const token = localStorage.getItem("token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: "include"
       });
       if (res.ok) {
         const data = await res.json();

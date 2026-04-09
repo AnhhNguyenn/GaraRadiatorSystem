@@ -54,6 +54,12 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("shopee/callback")]
         public async Task<IActionResult> ShopeeCallback([FromQuery] string code, [FromQuery] string shop_id, [FromQuery] string state)
         {
+            var tenantClaim = User?.FindFirst("TenantId")?.Value;
+            if (string.IsNullOrEmpty(tenantClaim) || !Guid.TryParse(tenantClaim, out var currentTenantId))
+            {
+                return Unauthorized("Missing TenantId in current session.");
+            }
+
             // Bối cảnh 3: Đồng bộ Bảo mật CSRF cho Shopee ngăn Replay Attack
             var expectedState = Request.Cookies["oauth_correlation"];
             if (string.IsNullOrEmpty(state) || state != expectedState)
@@ -96,12 +102,18 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                 {
                     store = new PlatformStore
                     {
+                        TenantId = currentTenantId,
                         PlatformName = "Shopee",
                         ShopId = shop_id,
                         StoreName = storeName
                     };
                     _context.PlatformStores.Add(store);
                     await _context.SaveChangesAsync();
+                }
+                else if (store.TenantId != currentTenantId)
+                {
+                    await transaction.RollbackAsync();
+                    return StatusCode(403, "Store is already connected to another Garage.");
                 }
 
                 // Bối cảnh 2 (Phần 2): Triển khai HttpClient call tới Shopee OpenAPI 2.0 để lấy accessToken thật
@@ -174,6 +186,12 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         [HttpGet("tiktok/callback")]
         public async Task<IActionResult> TikTokCallback([FromQuery] string auth_code, [FromQuery] string state)
         {
+            var tenantClaim = User?.FindFirst("TenantId")?.Value;
+            if (string.IsNullOrEmpty(tenantClaim) || !Guid.TryParse(tenantClaim, out var currentTenantId))
+            {
+                return Unauthorized("Missing TenantId in current session.");
+            }
+
             // Bối cảnh 2: Thay vì chỉ giải mã Stateless dễ bị Replay Attack, kết hợp Cookie SameSite=Lax (Cross-Site top level GET vẫn gửi Cookie)
             var expectedState = Request.Cookies["oauth_correlation"];
 
@@ -288,11 +306,18 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     {
                         store = new PlatformStore
                         {
+                            TenantId = currentTenantId,
                             PlatformName = "TikTok",
                             ShopId = shop_id,
                             StoreName = storeName
                         };
                         _context.PlatformStores.Add(store);
+                    }
+                    else if (store.TenantId != currentTenantId)
+                    {
+                        // Nếu shop đã thuộc về Gara khác thì không add token vào, bỏ qua luôn
+                        _logger.LogWarning($"TikTok Auth: Shop {shop_id} already belongs to another Tenant. Skipping.");
+                        continue;
                     }
                     else
                     {

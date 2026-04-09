@@ -18,16 +18,16 @@ namespace GarageRadiatorERP.Api.Services.System
             _httpContextAccessor = httpContextAccessor;
         }
 
-        private Guid? _backgroundJobTenantId;
+        private readonly global::System.Threading.AsyncLocal<Guid?> _backgroundJobTenantId = new global::System.Threading.AsyncLocal<Guid?>();
 
         public void SetTenantId(Guid tenantId)
         {
-            _backgroundJobTenantId = tenantId;
+            _backgroundJobTenantId.Value = tenantId;
         }
 
         public Guid? GetTenantId()
         {
-            if (_backgroundJobTenantId.HasValue) return _backgroundJobTenantId.Value;
+            if (_backgroundJobTenantId.Value.HasValue) return _backgroundJobTenantId.Value.Value;
 
             var user = _httpContextAccessor.HttpContext?.User;
             if (user == null || user.Identity?.IsAuthenticated != true)
