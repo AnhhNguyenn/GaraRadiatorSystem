@@ -205,8 +205,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             batch.RemainingQuantity -= qtyFromThisBatch;
                             qtyToFulfill -= qtyFromThisBatch;
 
-                            decimal lineVat = (qtyFromThisBatch * itemDto.UnitPrice) * (currentVatRate / 100m);
-                            decimal linePit = (qtyFromThisBatch * itemDto.UnitPrice) * (currentPitRate / 100m);
+                            // Sửa Lỗi Penny Rounding (Làm tròn chẵn tiền thuế và tiền tổng)
+                            decimal lineVat = Math.Round((qtyFromThisBatch * itemDto.UnitPrice) * (currentVatRate / 100m), 0, MidpointRounding.AwayFromZero);
+                            decimal linePit = Math.Round((qtyFromThisBatch * itemDto.UnitPrice) * (currentPitRate / 100m), 0, MidpointRounding.AwayFromZero);
 
                             var orderItem = new OrderItem
                             {
@@ -235,7 +236,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             _context.InventoryTransactions.Add(transaction);
 
-                            totalAmount += (qtyFromThisBatch * itemDto.UnitPrice) + lineVat;
+                            totalAmount += Math.Round((qtyFromThisBatch * itemDto.UnitPrice) + lineVat, 0, MidpointRounding.AwayFromZero);
                             totalCost += (qtyFromThisBatch * batch.CostPrice);
                             totalGoodsValue += (qtyFromThisBatch * itemDto.UnitPrice);
                             totalVatAmount += lineVat;
@@ -262,8 +263,9 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                         if (qtyToFulfill > 0)
                         {
-                            decimal lineVat = (qtyToFulfill * itemDto.UnitPrice) * (currentVatRate / 100m);
-                            decimal linePit = (qtyToFulfill * itemDto.UnitPrice) * (currentPitRate / 100m);
+                            // Sửa Lỗi Penny Rounding (Làm tròn chẵn tiền thuế và tiền tổng)
+                            decimal lineVat = Math.Round((qtyToFulfill * itemDto.UnitPrice) * (currentVatRate / 100m), 0, MidpointRounding.AwayFromZero);
+                            decimal linePit = Math.Round((qtyToFulfill * itemDto.UnitPrice) * (currentPitRate / 100m), 0, MidpointRounding.AwayFromZero);
 
                             // Fix bán âm gán giá vốn = 0 (Lỗi 9)
                             var backOrderItem = new OrderItem
@@ -292,7 +294,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             _context.InventoryTransactions.Add(negativeTransaction);
 
-                            totalAmount += (qtyToFulfill * itemDto.UnitPrice) + lineVat;
+                            totalAmount += Math.Round((qtyToFulfill * itemDto.UnitPrice) + lineVat, 0, MidpointRounding.AwayFromZero);
                             totalCost += (qtyToFulfill * fallbackCostPrice);
                             totalGoodsValue += (qtyToFulfill * itemDto.UnitPrice);
                             totalVatAmount += lineVat;
@@ -373,6 +375,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 order.Status = "Cancelled";
                 order.Notes = (order.Notes + $"\nCancelled Reason: {reason}").Trim();
 
+                var syncStockDict = new Dictionary<Guid, int>();
+
                 foreach(var item in order.Items)
                 {
                     if (item.InventoryBatchId.HasValue && item.InventoryBatch != null)
@@ -391,16 +395,45 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         };
                         _context.InventoryTransactions.Add(returnTransaction);
                     }
+                    else
+                    {
+                        // Sửa Lỗi 3 (Mất kho khi hủy đơn do Backorder)
+                        // Bán âm không có BatchId, ta tạo transaction dương để bù lại kho ảo
+                        var backorderRestoreTransaction = new InventoryTransaction
+                        {
+                            ProductId = item.ProductId,
+                            BatchId = null,
+                            OrderId = order.Id,
+                            Type = "cancel_restore_backorder",
+                            QuantityChange = item.Quantity,
+                            ReferenceDocument = "Cancel Order (Restore Backorder)",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.InventoryTransactions.Add(backorderRestoreTransaction);
+                    }
 
-                    // Trigger Sync Stock
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
-                    // Stock before save is old stock, we need to add the restored quantity for accurate sync before commit
-                    await _platformService.SyncStockToPlatformAsync(item.ProductId, totalStock + item.Quantity);
+                    if (!syncStockDict.ContainsKey(item.ProductId)) syncStockDict[item.ProductId] = 0;
+                    syncStockDict[item.ProductId] += item.Quantity;
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                foreach(var kvp in syncStockDict)
+                {
+                    var productId = kvp.Key;
+
+                    // Tính cả tồn kho thực (RemainingQuantity) lẫn giao dịch chưa phân bổ nếu cần,
+                    // Trong hệ thống này kho dựa vào RemainingQuantity của Batches.
+                    // Nếu bán âm (chỉ có Transaction), Stock có thể được tính theo Transaction.
+                    // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
+                    var totalStock = await _context.InventoryBatches
+                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
+                        .SumAsync(b => b.RemainingQuantity);
+
+                    await _platformService.SyncStockToPlatformAsync(productId, totalStock);
+                }
+
                 await transaction.CommitAsync();
             }
             catch
@@ -426,6 +459,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
             {
                 order.Status = "Returned";
 
+                var syncStockDict = new Dictionary<Guid, int>();
+
                 foreach(var item in order.Items)
                 {
                     if (item.InventoryBatchId.HasValue && item.InventoryBatch != null)
@@ -444,15 +479,39 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         };
                         _context.InventoryTransactions.Add(returnTransaction);
                     }
+                    else
+                    {
+                        // Sửa Lỗi 3 (Mất kho khi hủy đơn do Backorder)
+                        var backorderRestoreTransaction = new InventoryTransaction
+                        {
+                            ProductId = item.ProductId,
+                            BatchId = null,
+                            OrderId = order.Id,
+                            Type = "return_backorder",
+                            QuantityChange = item.Quantity,
+                            ReferenceDocument = "Return Order (Restore Backorder)",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.InventoryTransactions.Add(backorderRestoreTransaction);
+                    }
 
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
-
-                    await _platformService.SyncStockToPlatformAsync(item.ProductId, totalStock + item.Quantity);
+                    if (!syncStockDict.ContainsKey(item.ProductId)) syncStockDict[item.ProductId] = 0;
+                    syncStockDict[item.ProductId] += item.Quantity;
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                foreach(var kvp in syncStockDict)
+                {
+                    var productId = kvp.Key;
+                    var totalStock = await _context.InventoryBatches
+                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
+                        .SumAsync(b => b.RemainingQuantity);
+
+                    await _platformService.SyncStockToPlatformAsync(productId, totalStock);
+                }
+
                 await transaction.CommitAsync();
             }
             catch

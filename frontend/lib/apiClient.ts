@@ -54,7 +54,7 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
   if (!response.ok) {
     if (response.status === 401) {
       emitAuthError(); // Dùng event thay vì gán window.location cứng nhắc làm giật trang
-      return new Promise(() => {}); // Dừng Promise
+      return Promise.reject(new Error("Unauthorized")); // Sửa Lỗi 5: Đóng promise để tránh Memory Leak
     }
     if (response.status === 403) {
       throw new Error("Bạn không có quyền thực hiện hành động này (403).");

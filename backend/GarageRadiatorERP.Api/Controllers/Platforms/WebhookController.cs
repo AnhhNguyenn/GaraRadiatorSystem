@@ -28,7 +28,11 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             var reqBody = await reader.ReadToEndAsync();
             var signature = Request.Headers["Authorization"].ToString();
 
-            var secret = _config["Shopee:AppSecret"] ?? "test_secret";
+            var secret = _config["Shopee:AppSecret"];
+            if (string.IsNullOrEmpty(secret))
+            {
+                throw new InvalidOperationException("CRITICAL: Missing Shopee AppSecret configuration. Webhook halted to prevent security bypass.");
+            }
 
             // Xây dựng HMAC SHA256 theo chuẩn Webhook Shopee: Url|Payload
             var url = $"{Request.Scheme}://{Request.Host}{Request.Path}";
@@ -38,7 +42,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(baseString));
             var expectedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
 
-            if (signature != expectedSignature && secret != "test_secret")
+            if (signature != expectedSignature)
             {
                 _logger.LogWarning("❌ Lỗi xác thực Webhook Shopee: Chữ ký không hợp lệ!");
                 return Unauthorized(new { error = "Invalid Signature" });
@@ -50,10 +54,26 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             string? shopId = ExtractShopId(reqBody, "Shopee");
             Guid tenantId = await GetTenantIdByShopIdAsync("Shopee", shopId);
 
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("❌ Webhook rác: Không tìm thấy Tenant tương ứng với Shopee ShopId {shopId}. Bỏ qua lưu trữ.", shopId);
+                return Ok(new { message = "Ignored (Orphan)" }); // Return OK to tell platform to stop retrying
+            }
+
+            // Chống Replay Attack
+            string eventId = ExtractEventId(reqBody, "Shopee") ?? Guid.NewGuid().ToString();
+            bool eventExists = await _context.PlatformPayloads.IgnoreQueryFilters().AnyAsync(p => p.PlatformEventId == eventId && p.Platform == "Shopee");
+            if (eventExists)
+            {
+                _logger.LogWarning("⚠️ Webhook trùng lặp (Shopee EventId {eventId}) đã được xử lý. Bỏ qua.", eventId);
+                return Ok(new { message = "Ignored (Duplicate)" });
+            }
+
             _context.PlatformPayloads.Add(new Models.Platforms.PlatformPayload
             {
                 Platform = "Shopee",
                 PayloadJson = reqBody,
+                PlatformEventId = eventId,
                 Status = "Pending",
                 TenantId = tenantId
             });
@@ -69,14 +89,18 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             var reqBody = await reader.ReadToEndAsync();
             var signature = Request.Headers["X-TTP-Signature"].ToString();
 
-            var secret = _config["TikTok:AppSecret"] ?? "test_secret";
+            var secret = _config["TikTok:AppSecret"];
+            if (string.IsNullOrEmpty(secret))
+            {
+                throw new InvalidOperationException("CRITICAL: Missing TikTok AppSecret configuration. Webhook halted to prevent security bypass.");
+            }
 
             // TikTok ký trực tiếp trên payload body
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(reqBody));
             var expectedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
 
-            if (signature != expectedSignature && secret != "test_secret")
+            if (signature != expectedSignature)
             {
                 _logger.LogWarning("❌ Lỗi xác thực Webhook TikTok: Chữ ký không hợp lệ!");
                 return Unauthorized(new { error = "Invalid TikTok Signature" });
@@ -88,16 +112,53 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             string? shopId = ExtractShopId(reqBody, "TikTok");
             Guid tenantId = await GetTenantIdByShopIdAsync("TikTok", shopId);
 
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("❌ Webhook rác: Không tìm thấy Tenant tương ứng với TikTok ShopId {shopId}. Bỏ qua lưu trữ.", shopId);
+                return Ok(new { message = "Ignored (Orphan)" }); // Return OK to tell platform to stop retrying
+            }
+
+            // Chống Replay Attack
+            string eventId = ExtractEventId(reqBody, "TikTok") ?? Guid.NewGuid().ToString();
+            bool eventExists = await _context.PlatformPayloads.IgnoreQueryFilters().AnyAsync(p => p.PlatformEventId == eventId && p.Platform == "TikTok");
+            if (eventExists)
+            {
+                _logger.LogWarning("⚠️ Webhook trùng lặp (TikTok EventId {eventId}) đã được xử lý. Bỏ qua.", eventId);
+                return Ok(new { message = "Ignored (Duplicate)" });
+            }
+
             _context.PlatformPayloads.Add(new Models.Platforms.PlatformPayload
             {
                 Platform = "TikTok",
                 PayloadJson = reqBody,
+                PlatformEventId = eventId,
                 Status = "Pending",
                 TenantId = tenantId
             });
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "success" });
+        }
+
+        private string? ExtractEventId(string payloadJson, string platform)
+        {
+            try
+            {
+                var doc = global::System.Text.Json.JsonDocument.Parse(payloadJson);
+                if (platform == "Shopee" && doc.RootElement.TryGetProperty("message_id", out var eventId1))
+                {
+                    return eventId1.ToString();
+                }
+                if (platform == "TikTok" && doc.RootElement.TryGetProperty("event_id", out var eventId2))
+                {
+                    return eventId2.ToString();
+                }
+                // Fallback using hash if explicit ID doesn't exist
+                using var md5 = MD5.Create();
+                var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(payloadJson));
+                return BitConverter.ToString(hash).Replace("-", "");
+            }
+            catch { return null; }
         }
 
         private string? ExtractShopId(string payloadJson, string platform)
