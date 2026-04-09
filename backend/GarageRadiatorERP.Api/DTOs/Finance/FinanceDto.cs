@@ -32,5 +32,7 @@ namespace GarageRadiatorERP.Api.DTOs.Finance
         public decimal TotalCost { get; set; }
         public decimal TotalExpense { get; set; }
         public decimal NetProfit { get; set; }
+        public decimal TotalPlatformFee { get; set; }
+        public bool IsPlatformFeeWarning { get; set; }
     }
 }

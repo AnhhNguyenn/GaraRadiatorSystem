@@ -67,6 +67,9 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<GarageRadiatorERP.Api.Services.System.ISystemConfigurationService, GarageRadiatorERP.Api.Services.System.SystemConfigurationService>();
+
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IPlatformService, PlatformService>();

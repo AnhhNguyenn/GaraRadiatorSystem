@@ -19,9 +19,8 @@ namespace GarageRadiatorERP.Api.Middleware
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context, AppDbContext dbContext, ITenantProvider tenantProvider)
+        public async Task InvokeAsync(HttpContext context, AppDbContext dbContext, ITenantProvider tenantProvider, ISystemConfigurationService configService)
         {
-            // Bỏ qua nếu endpoint hiện tại không yêu cầu xác thực hoặc là API đăng nhập
             if (context.Request.Path.StartsWithSegments("/api/v1/auth") || context.Request.Path.StartsWithSegments("/api/webhooks"))
             {
                 await _next(context);
@@ -31,7 +30,6 @@ namespace GarageRadiatorERP.Api.Middleware
             var tenantId = tenantProvider.GetTenantId();
             if (tenantId.HasValue && tenantId.Value != System.Guid.Empty)
             {
-                // Cho phép SuperAdmin bypass qua Subscription Check
                 var isSuperAdmin = context.User?.IsInRole("SuperAdmin") ?? false;
                 if (!isSuperAdmin)
                 {
@@ -41,7 +39,6 @@ namespace GarageRadiatorERP.Api.Middleware
 
                     if (subscription == null)
                     {
-                        // Chưa có plan
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         await context.Response.WriteAsJsonAsync(new { message = "Gara của bạn chưa đăng ký gói cước dịch vụ." });
                         return;
@@ -49,17 +46,18 @@ namespace GarageRadiatorERP.Api.Middleware
 
                     if (!subscription.IsActive)
                     {
-                        // Bị khóa (Khóa chủ động)
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         await context.Response.WriteAsJsonAsync(new { message = "Tài khoản Gara đã bị khóa. Vui lòng liên hệ hỗ trợ." });
                         return;
                     }
 
-                    if (System.DateTime.UtcNow > subscription.EndDate)
+                    int gracePeriod = await configService.GetValueAsync<int>("Billing.GracePeriodDays");
+                    var absoluteDeadline = subscription.EndDate.AddDays(gracePeriod);
+
+                    if (System.DateTime.UtcNow > absoluteDeadline)
                     {
-                        // Hết hạn (Khóa bị động)
                         context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
-                        await context.Response.WriteAsJsonAsync(new { message = "Gói cước đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng." });
+                        await context.Response.WriteAsJsonAsync(new { message = $"Gói cước đã hết hạn. Hạn chót Grace Period ({gracePeriod} ngày) cũng đã qua. Vui lòng gia hạn để tiếp tục sử dụng." });
                         return;
                     }
                 }

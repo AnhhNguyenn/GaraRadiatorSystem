@@ -26,6 +26,37 @@ namespace GarageRadiatorERP.Api.Data
                 }
             }
 
+            var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+
+            if (!await dbContext.SystemSettings.AnyAsync())
+            {
+                var defaultSettings = new[]
+                {
+                    new SystemSetting { SettingKey = "Finance.DefaultVAT", SettingValue = "10", Description = "Default VAT Rate (%)" },
+                    new SystemSetting { SettingKey = "Finance.MaxPlatformFeeAlert", SettingValue = "8", Description = "Alert if platform fee exceeds (%)" },
+                    new SystemSetting { SettingKey = "Inventory.DefaultMinStockAlert", SettingValue = "5", Description = "Default low stock alert threshold" },
+                    new SystemSetting { SettingKey = "Inventory.LowStockSyncPlatformValue", SettingValue = "0", Description = "Sync value for platforms when stock is low" },
+                    new SystemSetting { SettingKey = "Billing.TrialDays", SettingValue = "14", Description = "Free trial duration in days" },
+                    new SystemSetting { SettingKey = "Billing.GracePeriodDays", SettingValue = "3", Description = "Days to allow usage after subscription expiration" },
+                    new SystemSetting { SettingKey = "System.MaintenanceMode", SettingValue = "false", Description = "Put system into maintenance mode" }
+                };
+                dbContext.SystemSettings.AddRange(defaultSettings);
+                await dbContext.SaveChangesAsync();
+            }
+
+            if (!await dbContext.TaxConfigurations.AnyAsync())
+            {
+                var defaultTaxes = new[]
+                {
+                    new Models.Finance.TaxConfiguration { BusinessModel = "Corporate", ProductCategory = "Két nước", VatRate = 8, PitRate = 0, CitRate = 20 },
+                    new Models.Finance.TaxConfiguration { BusinessModel = "Household", ProductCategory = "Két nước", VatRate = 1.5m, PitRate = 1.5m, CitRate = 0 },
+                    new Models.Finance.TaxConfiguration { BusinessModel = "Corporate", ProductCategory = "Dầu nhớt", VatRate = 10, PitRate = 0, CitRate = 20 },
+                    new Models.Finance.TaxConfiguration { BusinessModel = "Household", ProductCategory = "Dầu nhớt", VatRate = 1.5m, PitRate = 1.5m, CitRate = 0 }
+                };
+                dbContext.TaxConfigurations.AddRange(defaultTaxes);
+                await dbContext.SaveChangesAsync();
+            }
+
             var usersExist = await userManager.Users.IgnoreQueryFilters().AnyAsync();
 
             if (!usersExist)

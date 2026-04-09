@@ -26,11 +26,47 @@ namespace GarageRadiatorERP.Api.Controllers.System
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _configuration;
 
-        public SuperAdminController(AppDbContext context, UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        private readonly GarageRadiatorERP.Api.Services.System.ISystemConfigurationService _configService;
+
+        public SuperAdminController(AppDbContext context, UserManager<ApplicationUser> userManager, IConfiguration configuration, GarageRadiatorERP.Api.Services.System.ISystemConfigurationService configService)
         {
             _context = context;
             _userManager = userManager;
             _configuration = configuration;
+            _configService = configService;
+        }
+
+        [HttpGet("settings")]
+        public async Task<IActionResult> GetSystemSettings()
+        {
+            var settings = await _context.SystemSettings.ToListAsync();
+            return Ok(settings);
+        }
+
+        public class UpdateSettingRequest
+        {
+            public string SettingKey { get; set; } = string.Empty;
+            public string SettingValue { get; set; } = string.Empty;
+        }
+
+        [HttpPut("settings")]
+        public async Task<IActionResult> UpdateSystemSettings([FromBody] List<UpdateSettingRequest> request)
+        {
+            var allSettings = await _context.SystemSettings.ToDictionaryAsync(s => s.SettingKey);
+            foreach(var item in request)
+            {
+                if(allSettings.TryGetValue(item.SettingKey, out var setting))
+                {
+                    setting.SettingValue = item.SettingValue;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Xóa bộ nhớ đệm RAM để bắt buộc load lại thông số mới nhất
+            _configService.ClearCache();
+
+            return Ok(new { message = "Settings updated successfully and cache cleared." });
         }
 
         public class OnboardTenantRequest
@@ -40,6 +76,8 @@ namespace GarageRadiatorERP.Api.Controllers.System
             public string OwnerFullName { get; set; } = string.Empty;
             public string PlanName { get; set; } = "Basic";
             public int DurationMonths { get; set; } = 12;
+            public string BusinessModel { get; set; } = "Household";
+            public string TaxMethod { get; set; } = "Direct";
         }
 
         [HttpPost("tenants/onboard")]
@@ -58,6 +96,8 @@ namespace GarageRadiatorERP.Api.Controllers.System
                     Id = Guid.NewGuid(),
                     StoreName = request.StoreName,
                     PlatformName = "ERP", // Virtual platform for the shop itself
+                    BusinessModel = request.BusinessModel,
+                    TaxMethod = request.TaxMethod,
                     IsActive = true
                 };
                 newTenant.TenantId = newTenant.Id;

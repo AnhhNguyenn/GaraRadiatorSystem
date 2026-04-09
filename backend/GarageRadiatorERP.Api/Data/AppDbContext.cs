@@ -56,6 +56,8 @@ namespace GarageRadiatorERP.Api.Data
         public DbSet<ProfitReport> ProfitReports { get; set; }
         public DbSet<TaxProfile> TaxProfiles { get; set; }
         public DbSet<TaxRecord> TaxRecords { get; set; }
+        public DbSet<TaxConfiguration> TaxConfigurations { get; set; }
+        public DbSet<SystemSetting> SystemSettings { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PlatformPayload> PlatformPayloads { get; set; }
         public DbSet<PlatformConversation> PlatformConversations { get; set; }

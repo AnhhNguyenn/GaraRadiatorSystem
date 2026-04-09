@@ -19,10 +19,12 @@ namespace GarageRadiatorERP.Api.Services.Finance
     public class FinanceService : IFinanceService
     {
         private readonly AppDbContext _context;
+        private readonly GarageRadiatorERP.Api.Services.System.ISystemConfigurationService _configService;
 
-        public FinanceService(AppDbContext context)
+        public FinanceService(AppDbContext context, GarageRadiatorERP.Api.Services.System.ISystemConfigurationService configService)
         {
             _context = context;
+            _configService = configService;
         }
 
 
@@ -98,12 +100,27 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 .Where(e => e.Date >= start && e.Date < endInclusive)
                 .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0;
 
+            decimal totalPlatformFee = await _context.Orders
+                .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
+                .SumAsync(o => (decimal?)o.PlatformFee, cancellationToken) ?? 0;
+
+            int feeAlertThreshold = await _configService.GetValueAsync<int>("Finance.MaxPlatformFeeAlert");
+            if (feeAlertThreshold <= 0) feeAlertThreshold = 8;
+
+            bool isWarning = false;
+            if (totalRevenue > 0)
+            {
+                isWarning = (totalPlatformFee / totalRevenue * 100m) > feeAlertThreshold;
+            }
+
             return new ProfitReportDto
             {
                 TotalRevenue = totalRevenue,
                 TotalCost = totalCost,
                 TotalExpense = totalExpense,
-                NetProfit = totalRevenue - totalCost - totalExpense
+                NetProfit = totalRevenue - totalCost - totalExpense - totalPlatformFee,
+                TotalPlatformFee = totalPlatformFee,
+                IsPlatformFeeWarning = isWarning
             };
         }
     }

@@ -86,4 +86,19 @@ namespace GarageRadiatorERP.Api.Models.System
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
+
+    public class SystemSetting
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        [StringLength(200)]
+        public string SettingKey { get; set; } = string.Empty;
+
+        public string SettingValue { get; set; } = string.Empty;
+
+        [StringLength(500)]
+        public string Description { get; set; } = string.Empty;
+    }
 }
