@@ -27,13 +27,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>
     options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
 
     // Tùy chọn: Xóa KnownNetworks/KnownProxies nếu chạy trong Docker/K8s mà không biết trước IP của Proxy
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    // Bỏ Clear() để giữ lại KnownNetworks mặc định (Loopback)
+    // options.KnownNetworks.Clear();
+    // options.KnownProxies.Clear();
 
 
     // Bảo mật Hạ tầng (Phần 3): Mở cửa cho Hacker giả mạo IP (Lỗi X-Forwarded-For)
     // KHÔNG xóa KnownNetworks. Thay vào đó, thiết lập ForwardLimit hoặc cấu hình dải IP Proxy (VD: Cloudflare/Nginx IP)
     // Nếu chạy Docker cục bộ qua Nginx, hãy dùng options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
+    options.KnownProxies.Add(System.Net.IPAddress.Parse("127.0.0.1")); // Cho phép Nginx local giả sử setup hiện tại dùng
     options.ForwardLimit = 2; // Chặn spoofing chain dài hơn cần thiết
 
 });

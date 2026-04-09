@@ -5,6 +5,11 @@ const API_URL = (RAW_API_URL || "http://localhost:5248").replace(/\/$/, "");
 // Add `/api/v1` for versioning
 const BASE_URL = `${API_URL}/api/v1`;
 
+function getAuthToken(customToken?: string): string | null {
+  if (customToken) return customToken;
+  return null;
+}
+
 interface ExtendedRequestInit extends RequestInit {
   timeoutMs?: number; // Cho phép API nặng (Báo cáo) kéo dài timeout thay vì lock chết ở 15s (Lỗi Timeout Báo cáo)
 }
