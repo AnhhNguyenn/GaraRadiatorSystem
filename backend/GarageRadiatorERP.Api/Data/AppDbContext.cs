@@ -111,13 +111,19 @@ namespace GarageRadiatorERP.Api.Data
 
             foreach (var property in decimalProps)
             {
-                if (property.Name.Contains("Cost") || property.Name.Contains("Price"))
+                var currentType = property.GetColumnType();
+                var currentPrecision = property.GetPrecision();
+
+                if (string.IsNullOrEmpty(currentType) && currentPrecision == null)
                 {
-                    property.SetColumnType("decimal(18,4)");
-                }
-                else
-                {
-                    property.SetColumnType("decimal(18,2)");
+                    if (property.Name.Contains("Cost") || property.Name.Contains("Price"))
+                    {
+                        property.SetColumnType("decimal(18,4)");
+                    }
+                    else
+                    {
+                        property.SetColumnType("decimal(18,2)");
+                    }
                 }
             }
 
