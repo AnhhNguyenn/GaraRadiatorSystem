@@ -1,9 +1,9 @@
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
+export const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fix: Sập FE vì biến môi trường (Lỗi 48/45) và Lỗi Double Slash URL (Lỗi 49/34)
 
-const API_URL = (RAW_API_URL || "http://localhost:5263").replace(/\/$/, "");
+export const API_URL = (RAW_API_URL || "http://localhost:5263").replace(/\/+$/, "");
 // Add `/api/v1` for versioning
-const BASE_URL = `${API_URL}/api/v1`;
+export const BASE_URL = `${API_URL}/api/v1`;
 
 function getAuthToken(customToken?: string): string | null {
   if (customToken) return customToken;
