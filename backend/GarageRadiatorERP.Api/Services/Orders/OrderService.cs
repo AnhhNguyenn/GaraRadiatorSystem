@@ -197,7 +197,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         foreach (var batch in batchesToDeduct)
                         {
                             if (qtyToFulfill <= 0) break;
-                            if (batch.RemainingQuantity <= 0) continue; // Fix thuật toán trừ ngây thơ âm (Lỗi 12)
+                            if (batch.RemainingQuantity <= 0) continue;
 
                             int qtyFromThisBatch = Math.Min(batch.RemainingQuantity, qtyToFulfill);
 
