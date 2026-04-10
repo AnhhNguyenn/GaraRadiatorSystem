@@ -1,3 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -25,4 +32,5 @@
     <ProjectReference Include="..\GarageRadiatorERP.Api\GarageRadiatorERP.Api.csproj" />
   </ItemGroup>
 
+</Project>
 </Project>
