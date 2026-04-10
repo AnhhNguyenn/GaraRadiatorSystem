@@ -428,16 +428,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
-                // Optimized: Prevent N+1 query by fetching all required inventory batches in a single query
-                var productIds = syncStockDict.Keys.ToList();
-                var inventoryStocks = await _context.InventoryBatches
-                var productIds = syncStockDict.Keys.ToList();
-                var stockSums = await _context.InventoryBatches
-                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
-                    .GroupBy(b => b.ProductId)
-                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
-                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
-
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
@@ -447,16 +437,16 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     // Nếu bán âm (chỉ có Transaction), Stock có thể được tính theo Transaction.
                     // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
                     var totalStock = stockSums.GetValueOrDefault(productId, 0);
-                    var totalStock = inventoryStocks.ContainsKey(productId) ? inventoryStocks[productId] : 0;
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => (int?)b.RemainingQuantity) ?? 0;
-                    var totalStock = stockSums.TryGetValue(productId, out var stock) ? stock : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
 
                 await transaction.CommitAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception("Quá nhiều giao dịch đồng thời, vui lòng thử lại sau (Concurrency Conflict).");
             }
             catch
             {
@@ -535,26 +525,10 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
-                // Optimized: Prevent N+1 query by fetching all required inventory batches in a single query
-                var productIds = syncStockDict.Keys.ToList();
-                var inventoryStocks = await _context.InventoryBatches
-                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
-                var returnProductIds = syncStockDict.Keys.ToList();
-                var returnStockSums = await _context.InventoryBatches
-                    .Where(b => returnProductIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
-                    .GroupBy(b => b.ProductId)
-                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
-                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
-
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
                     var totalStock = stockSums.GetValueOrDefault(productId, 0);
-                    var totalStock = inventoryStocks.ContainsKey(productId) ? inventoryStocks[productId] : 0;
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => (int?)b.RemainingQuantity) ?? 0;
-                    var totalStock = returnStockSums.TryGetValue(productId, out var stock) ? stock : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
