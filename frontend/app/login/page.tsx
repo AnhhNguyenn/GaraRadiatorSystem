@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Shield, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { BASE_URL } from "@/lib/apiClient";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -22,8 +23,7 @@ export default function LoginPage() {
     const toastId = toast.loading("Đang kết nối hệ thống an toàn...");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263";
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
