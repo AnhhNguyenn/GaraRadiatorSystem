@@ -59,11 +59,4 @@ Các biến cấu hình bắt buộc phải được truyền qua Environment Va
 
 ---
 
-## 📖 Hồ sơ & Thẩm định
-
-Dự án đã vượt qua bài kiểm tra Audit khắt khe nhất từ Ban Giám đốc, đảm bảo không có Mock Data, không rò rỉ bảo mật, và logic kế toán hoàn chỉnh.
-
-- [✅ Báo cáo Thẩm định Nghiệm thu (Audit Report)](audit_report.md)
-
----
 *Phát triển và Thiết kế hệ thống bởi **AnhhNguyenn**.*
