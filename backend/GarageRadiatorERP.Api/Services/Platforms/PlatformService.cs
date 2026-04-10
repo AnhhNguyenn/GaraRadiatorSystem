@@ -281,17 +281,33 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             int pushStock = newQuantity < 2 ? 0 : newQuantity;
             var client = _httpClientFactory.CreateClient();
 
+            // Optimization: Fetch all needed tokens upfront to avoid N+1 queries
+            var platforms = mappings.Select(m => m.Platform).Distinct().ToList();
+            var tokenMap = await _context.PlatformTokens
+                .Where(t => platforms.Contains(t.Store.PlatformName))
+                .Select(t => new { t.Store.PlatformName, t.AccessToken })
+                .ToDictionaryAsync(t => t.PlatformName, t => t.AccessToken);
+
             foreach(var mapping in mappings)
             {
+                tokenMap.TryGetValue(mapping.Platform, out var accessToken);
+
                 if (mapping.Platform == "Shopee")
                 {
                     var apiUrl = "https://partner.shopeemobile.com/api/v2/product/update_stock";
                     try
                     {
-                        var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
-                        if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+                        using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                        if (!string.IsNullOrEmpty(accessToken))
+                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                        var res = await client.PostAsJsonAsync(apiUrl, new { item_id = long.Parse(mapping.PlatformProductId), stock_list = new[] { new { model_id = long.Parse(mapping.PlatformSkuId ?? "0"), normal_stock = pushStock } } });
+                        request.Content = global::System.Net.Http.Json.JsonContent.Create(new
+                        {
+                            item_id = long.Parse(mapping.PlatformProductId),
+                            stock_list = new[] { new { model_id = long.Parse(mapping.PlatformSkuId ?? "0"), normal_stock = pushStock } }
+                        });
+
+                        var res = await client.SendAsync(request);
                         res.EnsureSuccessStatusCode();
                         Console.WriteLine($"[SyncStockToPlatform] Đã gọi API Shopee {apiUrl} đẩy tồn kho: {pushStock} cho SkuId: {mapping.PlatformSkuId}");
                     }
@@ -302,10 +318,17 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     var apiUrl = "https://open-api.tiktokglobalshop.com/api/products/stock";
                     try
                     {
-                        var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
-                        if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+                        using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                        if (!string.IsNullOrEmpty(accessToken))
+                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                        var res = await client.PostAsJsonAsync(apiUrl, new { product_id = mapping.PlatformProductId, skus = new[] { new { id = mapping.PlatformSkuId, stock_quantity = pushStock } } });
+                        request.Content = global::System.Net.Http.Json.JsonContent.Create(new
+                        {
+                            product_id = mapping.PlatformProductId,
+                            skus = new[] { new { id = mapping.PlatformSkuId, stock_quantity = pushStock } }
+                        });
+
+                        var res = await client.SendAsync(request);
                         res.EnsureSuccessStatusCode();
                         Console.WriteLine($"[SyncStockToPlatform] Đã gọi API TikTok {apiUrl} đẩy tồn kho: {pushStock} cho SkuId: {mapping.PlatformSkuId}");
                     }
