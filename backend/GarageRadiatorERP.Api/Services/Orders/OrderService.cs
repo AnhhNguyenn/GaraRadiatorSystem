@@ -99,6 +99,31 @@ namespace GarageRadiatorERP.Api.Services.Orders
             // Fallback tax rate if category is null
             decimal defaultVatRate = await _configService.GetValueAsync<decimal>("Finance.DefaultVAT");
 
+            // Nhóm cấu hình MinStockLevel (Lỗi 44)
+            var products = await _context.Products
+                .Include(p => p.Category)
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+            // Fix Lỗ hổng IDOR: Chặn nhân viên hack POST request truyền mã hàng của Gara khác.
+            // Do Query Filter đã lọc products theo _tenantId, nếu số lượng trả về ít hơn số lượng IDs Client gửi lên,
+            // chắc chắn có mã hàng bịa đặt hoặc thuộc Gara khác.
+            if (products.Count != productIds.Count)
+            {
+                throw new UnauthorizedAccessException("Phát hiện mã sản phẩm không hợp lệ hoặc không thuộc quyền sở hữu!");
+            }
+
+            // Bối cảnh 2: Lấy giá vốn gần nhất Lịch sử bất kể tồn kho (để đề phòng kho hết sạch hàng)
+            var historicalCosts = await _context.InventoryBatches
+                .Where(b => productIds.Contains(b.ProductId))
+                .GroupBy(b => b.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    LatestCost = g.OrderByDescending(x => x.ImportDate).Select(x => x.CostPrice).FirstOrDefault()
+                })
+                .ToDictionaryAsync(x => x.ProductId, x => x.LatestCost, cancellationToken);
+
             int maxRetries = 3;
             for (int retry = 0; retry < maxRetries; retry++)
             {
@@ -112,31 +137,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
                     .OrderBy(b => b.ImportDate)
                     .ToListAsync(cancellationToken);
-
-                // Nhóm cấu hình MinStockLevel (Lỗi 44)
-                var products = await _context.Products
-                    .Include(p => p.Category)
-                    .Where(p => productIds.Contains(p.Id))
-                    .ToDictionaryAsync(p => p.Id, cancellationToken);
-
-                // Fix Lỗ hổng IDOR: Chặn nhân viên hack POST request truyền mã hàng của Gara khác.
-                // Do Query Filter đã lọc products theo _tenantId, nếu số lượng trả về ít hơn số lượng IDs Client gửi lên,
-                // chắc chắn có mã hàng bịa đặt hoặc thuộc Gara khác.
-                if (products.Count != productIds.Count)
-                {
-                    throw new UnauthorizedAccessException("Phát hiện mã sản phẩm không hợp lệ hoặc không thuộc quyền sở hữu!");
-                }
-
-                // Bối cảnh 2: Lấy giá vốn gần nhất Lịch sử bất kể tồn kho (để đề phòng kho hết sạch hàng)
-                var historicalCosts = await _context.InventoryBatches
-                    .Where(b => productIds.Contains(b.ProductId))
-                    .GroupBy(b => b.ProductId)
-                    .Select(g => new
-                    {
-                        ProductId = g.Key,
-                        LatestCost = g.OrderByDescending(x => x.ImportDate).Select(x => x.CostPrice).FirstOrDefault()
-                    })
-                    .ToDictionaryAsync(x => x.ProductId, x => x.LatestCost, cancellationToken);
 
                 try
                 {
