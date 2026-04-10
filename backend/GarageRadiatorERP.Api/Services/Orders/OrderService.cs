@@ -222,16 +222,15 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             order.Items.Add(orderItem);
 
-                            // Fix tham chiếu khóa ngoại chắp vá (Lỗi 14): Gán trực tiếp Object thay vì ReferenceDocument string
                             var transaction = new InventoryTransaction
                             {
-                                Order = order, // Entity Framework tự động mapping Khóa ngoại
+                                Order = order,
                                 ProductId = itemDto.ProductId,
                                 Batch = batch,
                                 Type = Models.Inventory.InventoryTransactionTypes.Sale,
                                 QuantityChange = -qtyFromThisBatch,
-                                ReferenceDocument = "POS Order", // Có thể lưu chuỗi mô tả
-                                CreatedAt = DateTime.UtcNow // Lỗi 3
+                                ReferenceDocument = "POS Order",
+                                CreatedAt = DateTime.UtcNow
                             };
                             _context.InventoryTransactions.Add(transaction);
 
@@ -283,7 +282,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             // Bối cảnh 1 (Phần 2): Kế toán chửi vụ bán âm kho - Phải ghi nhận Transaction xuất âm
                             var negativeTransaction = new InventoryTransaction
                             {
-                                Order = order, // Entity Framework tự động mapping Khóa ngoại
+                                Order = order,
                                 ProductId = itemDto.ProductId,
                                 Batch = null, // Bán âm thì chưa có lô thực tế
                                 Type = Models.Inventory.InventoryTransactionTypes.Backorder,
