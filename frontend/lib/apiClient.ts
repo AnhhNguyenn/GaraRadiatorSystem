@@ -40,11 +40,14 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
       credentials: "include", // Tự động đính kèm HttpOnly cookies
       signal: controller.signal,
     });
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      throw new Error("Request timed out. Vui lòng thử lại sau.");
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error("Request timed out. Vui lòng thử lại sau.");
+      }
+      throw new Error(`Network Error: ${error.message}`);
     }
-    throw new Error(`Network Error: ${error.message}`);
+    throw new Error(`Network Error: ${String(error)}`);
   } finally {
     clearTimeout(timeoutId);
   }
