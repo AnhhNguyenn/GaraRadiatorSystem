@@ -31,3 +31,4 @@ jest.mock('react-hot-toast', () => ({
     dismiss: jest.fn(),
   },
 }));
+import '@testing-library/jest-dom';
