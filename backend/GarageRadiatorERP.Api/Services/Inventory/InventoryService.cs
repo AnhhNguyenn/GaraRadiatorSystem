@@ -158,7 +158,7 @@ namespace GarageRadiatorERP.Api.Services.Inventory
                 // Lấy tổng tồn kho hiện tại + số lượng mới nhập để đồng bộ Sàn TMĐT
                 var currentTotalStock = await _context.InventoryBatches
                     .Where(b => b.ProductId == item.ProductId && b.RemainingQuantity > 0)
-                    .SumAsync(b => b.RemainingQuantity);
+                    .SumAsync(b => (int?)b.RemainingQuantity) ?? 0;
 
                 // Đồng bộ lên Sàn TMĐT
                 await _platformService.SyncStockToPlatformAsync(item.ProductId, currentTotalStock + item.Quantity);
