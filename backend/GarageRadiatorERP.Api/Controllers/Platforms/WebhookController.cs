@@ -154,8 +154,8 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
                     return eventId2.ToString();
                 }
                 // Fallback using hash if explicit ID doesn't exist
-                using var md5 = MD5.Create();
-                var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(payloadJson));
+                using var sha256 = SHA256.Create();
+                var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(payloadJson));
                 return BitConverter.ToString(hash).Replace("-", "");
             }
             catch { return null; }

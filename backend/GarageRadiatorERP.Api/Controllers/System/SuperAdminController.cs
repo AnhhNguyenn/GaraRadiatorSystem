@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using global::System.Linq;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace GarageRadiatorERP.Api.Controllers.System
 {
@@ -25,15 +26,22 @@ namespace GarageRadiatorERP.Api.Controllers.System
         private readonly AppDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<SuperAdminController> _logger;
 
         private readonly GarageRadiatorERP.Api.Services.System.ISystemConfigurationService _configService;
 
-        public SuperAdminController(AppDbContext context, UserManager<ApplicationUser> userManager, IConfiguration configuration, GarageRadiatorERP.Api.Services.System.ISystemConfigurationService configService)
+        public SuperAdminController(
+            AppDbContext context,
+            UserManager<ApplicationUser> userManager,
+            IConfiguration configuration,
+            GarageRadiatorERP.Api.Services.System.ISystemConfigurationService configService,
+            ILogger<SuperAdminController> logger)
         {
             _context = context;
             _userManager = userManager;
             _configuration = configuration;
             _configService = configService;
+            _logger = logger;
         }
 
         [HttpGet("settings")]
@@ -209,14 +217,26 @@ namespace GarageRadiatorERP.Api.Controllers.System
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var keyStr = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _configuration["Jwt:Key"];
-            var key = Encoding.UTF8.GetBytes(keyStr!);
+
+            if (string.IsNullOrEmpty(keyStr) || keyStr.Length < 32)
+            {
+                _logger.LogCritical("JWT Secret Key is missing or too short (must be at least 32 characters for HMAC-SHA256).");
+                return StatusCode(500, "Internal Server Error: Invalid security configuration.");
+            }
+
+            var key = Encoding.UTF8.GetBytes(keyStr);
+
+            var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Unknown";
+            var adminName = User.Identity?.Name ?? "SuperAdmin";
+
+            _logger.LogWarning("SuperAdmin {AdminName} ({AdminId}) is impersonating tenant {TenantId} ({StoreName}).", adminName, adminId, tenantId, store.StoreName);
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim(ClaimTypes.NameIdentifier, User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.NewGuid().ToString()),
-                    new Claim(ClaimTypes.Name, User.Identity?.Name ?? "SuperAdmin"),
+                    new Claim(ClaimTypes.NameIdentifier, adminId == "Unknown" ? Guid.NewGuid().ToString() : adminId),
+                    new Claim(ClaimTypes.Name, adminName),
                     new Claim("TenantId", tenantId.ToString()),
                     new Claim(ClaimTypes.Role, "ReadOnlySupport"), // Cấp quyền chỉ đọc cho Admin khi soi data khách
                     new Claim("IsImpersonating", "true")
@@ -234,7 +254,7 @@ namespace GarageRadiatorERP.Api.Controllers.System
             {
                 HttpOnly = true,
                 Secure = true, // Sử dụng HTTPS trong production
-                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
+                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddHours(1)
             };
             Response.Cookies.Append("access_token", tokenString, cookieOptions);
