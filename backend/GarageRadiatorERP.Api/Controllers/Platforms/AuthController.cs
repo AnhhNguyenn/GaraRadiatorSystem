@@ -17,7 +17,7 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
         private readonly ILogger<AuthController> _logger;
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
-        private readonly IEncryptionUtility _encryptionUtility; // Fix Hardcode Static Key (Lỗi 30)
+        private readonly IEncryptionUtility _encryptionUtility;
         private readonly global::System.Net.Http.IHttpClientFactory _httpClientFactory;
 
         public AuthController(ILogger<AuthController> logger, AppDbContext context, IConfiguration configuration, IEncryptionUtility encryptionUtility, global::System.Net.Http.IHttpClientFactory httpClientFactory)
