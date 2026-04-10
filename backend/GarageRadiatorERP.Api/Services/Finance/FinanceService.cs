@@ -60,7 +60,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 Amount = createDto.Amount,
                 Note = createDto.Note,
                 // Fix thời gian ghi nhận (Lỗi 17 / 39)
-                Date = createDto.ExpenseDate ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
+                Date = createDto.ExpenseDate?.ToUniversalTime() ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
             };
 
             _context.Expenses.Add(expense);
@@ -88,21 +88,24 @@ namespace GarageRadiatorERP.Api.Services.Finance
             // Fix Lỗi 62: Báo cáo tài chính ảo do quên lọc trạng thái "Đã thanh toán"
             var paidStatus = Models.Orders.PaymentStatus.Paid.ToString();
 
-            decimal totalRevenue = await _context.Orders
+            var orderAggregates = await _context.Orders
                 .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
-                .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0;
+                .GroupBy(o => 1)
+                .Select(g => new
+                {
+                    TotalRevenue = g.Sum(o => (decimal?)o.TotalAmount) ?? 0,
+                    TotalCost = g.Sum(o => (decimal?)o.TotalCost) ?? 0,
+                    TotalPlatformFee = g.Sum(o => (decimal?)o.PlatformFee) ?? 0
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-            decimal totalCost = await _context.Orders
-                .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
-                .SumAsync(o => (decimal?)o.TotalCost, cancellationToken) ?? 0;
+            decimal totalRevenue = orderAggregates?.TotalRevenue ?? 0;
+            decimal totalCost = orderAggregates?.TotalCost ?? 0;
+            decimal totalPlatformFee = orderAggregates?.TotalPlatformFee ?? 0;
 
             decimal totalExpense = await _context.Expenses
                 .Where(e => e.Date >= start && e.Date < endInclusive)
                 .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0;
-
-            decimal totalPlatformFee = await _context.Orders
-                .Where(o => o.OrderDate >= start && o.OrderDate < endInclusive && o.PaymentStatus == paidStatus)
-                .SumAsync(o => (decimal?)o.PlatformFee, cancellationToken) ?? 0;
 
             int feeAlertThreshold = await _configService.GetValueAsync<int>("Finance.MaxPlatformFeeAlert");
             if (feeAlertThreshold <= 0) feeAlertThreshold = 8;

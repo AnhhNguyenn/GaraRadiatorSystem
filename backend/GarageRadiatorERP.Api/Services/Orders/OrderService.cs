@@ -75,7 +75,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 bool customerExists = await _context.Customers.AnyAsync(c => c.Id == dto.CustomerId.Value, cancellationToken);
                 if (!customerExists)
                 {
-                    throw new ArgumentException("Khách hàng không tồn tại."); // Fix Crash POS CustomerId (Lỗi 16/42)
+                    dto.CustomerId = null;
                 }
             }
 
@@ -158,7 +158,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                     foreach (var itemDto in dto.Items)
                     {
-                        // Fix Hack số lượng âm (Lỗi 10)
                         if (itemDto.Quantity <= 0)
                             throw new ArgumentException($"Số lượng cho sản phẩm {itemDto.ProductId} phải lớn hơn 0.");
 
@@ -198,7 +197,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         foreach (var batch in batchesToDeduct)
                         {
                             if (qtyToFulfill <= 0) break;
-                            if (batch.RemainingQuantity <= 0) continue; // Fix thuật toán trừ ngây thơ âm (Lỗi 12)
+                            if (batch.RemainingQuantity <= 0) continue;
 
                             int qtyFromThisBatch = Math.Min(batch.RemainingQuantity, qtyToFulfill);
 
@@ -223,16 +222,15 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             };
                             order.Items.Add(orderItem);
 
-                            // Fix tham chiếu khóa ngoại chắp vá (Lỗi 14): Gán trực tiếp Object thay vì ReferenceDocument string
                             var transaction = new InventoryTransaction
                             {
-                                Order = order, // Entity Framework tự động mapping Khóa ngoại
+                                Order = order,
                                 ProductId = itemDto.ProductId,
                                 Batch = batch,
-                                Type = "sale",
+                                Type = Models.Inventory.InventoryTransactionTypes.Sale,
                                 QuantityChange = -qtyFromThisBatch,
-                                ReferenceDocument = "POS Order", // Có thể lưu chuỗi mô tả
-                                CreatedAt = DateTime.UtcNow // Lỗi 3
+                                ReferenceDocument = "POS Order",
+                                CreatedAt = DateTime.UtcNow
                             };
                             _context.InventoryTransactions.Add(transaction);
 
@@ -284,10 +282,10 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             // Bối cảnh 1 (Phần 2): Kế toán chửi vụ bán âm kho - Phải ghi nhận Transaction xuất âm
                             var negativeTransaction = new InventoryTransaction
                             {
-                                Order = order, // Entity Framework tự động mapping Khóa ngoại
+                                Order = order,
                                 ProductId = itemDto.ProductId,
                                 Batch = null, // Bán âm thì chưa có lô thực tế
-                                Type = "backorder",
+                                Type = Models.Inventory.InventoryTransactionTypes.Backorder,
                                 QuantityChange = -qtyToFulfill,
                                 ReferenceDocument = "POS Order (Negative/Backorder)",
                                 CreatedAt = DateTime.UtcNow
@@ -367,12 +365,12 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null) throw new ArgumentException("Order not found");
-            if (order.Status == "Cancelled" || order.Status == "Returned") throw new InvalidOperationException("Order is already cancelled or returned.");
+            if (order.Status == OrderStatus.Cancelled.ToString() || order.Status == OrderStatus.Returned.ToString()) throw new InvalidOperationException("Order is already cancelled or returned.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                order.Status = "Cancelled";
+                order.Status = OrderStatus.Cancelled.ToString();
                 order.Notes = (order.Notes + $"\nCancelled Reason: {reason}").Trim();
 
                 var syncStockDict = new Dictionary<Guid, int>();
@@ -388,7 +386,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = item.InventoryBatchId,
                             OrderId = order.Id,
-                            Type = "cancel_restore",
+                            Type = Models.Inventory.InventoryTransactionTypes.CancelRestore,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Cancel Order",
                             CreatedAt = DateTime.UtcNow
@@ -404,7 +402,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = null,
                             OrderId = order.Id,
-                            Type = "cancel_restore_backorder",
+                            Type = Models.Inventory.InventoryTransactionTypes.CancelRestoreBackorder,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Cancel Order (Restore Backorder)",
                             CreatedAt = DateTime.UtcNow
@@ -419,6 +417,13 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 await _context.SaveChangesAsync();
 
                 // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                var productIds = syncStockDict.Keys.ToList();
+                var stockSums = await _context.InventoryBatches
+                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
@@ -427,9 +432,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     // Trong hệ thống này kho dựa vào RemainingQuantity của Batches.
                     // Nếu bán âm (chỉ có Transaction), Stock có thể được tính theo Transaction.
                     // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                    var totalStock = stockSums.TryGetValue(productId, out var stock) ? stock : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
@@ -452,12 +455,12 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null) throw new ArgumentException("Order not found");
-            if (order.Status != "Shipped" && order.Status != "Completed") throw new InvalidOperationException("Only shipped or completed orders can be returned.");
+            if (order.Status != OrderStatus.Shipped.ToString() && order.Status != OrderStatus.Completed.ToString()) throw new InvalidOperationException("Only shipped or completed orders can be returned.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                order.Status = "Returned";
+                order.Status = OrderStatus.Returned.ToString();
 
                 var syncStockDict = new Dictionary<Guid, int>();
 
@@ -472,7 +475,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = item.InventoryBatchId,
                             OrderId = order.Id,
-                            Type = "return",
+                            Type = Models.Inventory.InventoryTransactionTypes.Return,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Return Order",
                             CreatedAt = DateTime.UtcNow
@@ -487,7 +490,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = null,
                             OrderId = order.Id,
-                            Type = "return_backorder",
+                            Type = Models.Inventory.InventoryTransactionTypes.ReturnBackorder,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Return Order (Restore Backorder)",
                             CreatedAt = DateTime.UtcNow
@@ -502,12 +505,17 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 await _context.SaveChangesAsync();
 
                 // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                var returnProductIds = syncStockDict.Keys.ToList();
+                var returnStockSums = await _context.InventoryBatches
+                    .Where(b => returnProductIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                    var totalStock = returnStockSums.TryGetValue(productId, out var stock) ? stock : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }

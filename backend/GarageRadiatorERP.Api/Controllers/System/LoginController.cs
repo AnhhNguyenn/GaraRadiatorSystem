@@ -82,7 +82,18 @@ namespace GarageRadiatorERP.Api.Controllers.System
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var keyStr = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _configuration["Jwt:Key"];
-            var key = Encoding.UTF8.GetBytes(keyStr!);
+
+            if (string.IsNullOrWhiteSpace(keyStr))
+            {
+                throw new InvalidOperationException("JWT Secret Key is missing. Please configure 'JWT_SECRET_KEY' environment variable or 'Jwt:Key' in appsettings.");
+            }
+
+            if (keyStr.Length < 32)
+            {
+                throw new InvalidOperationException("JWT Secret Key must be at least 32 characters long to be cryptographically secure for HMAC-SHA256.");
+            }
+
+            var key = Encoding.UTF8.GetBytes(keyStr);
 
             var claims = new List<Claim>
             {
