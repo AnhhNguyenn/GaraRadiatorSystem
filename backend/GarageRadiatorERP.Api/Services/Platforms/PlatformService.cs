@@ -202,16 +202,34 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     .Where(m => m.Platform == platform && platformSkuList.Contains(m.PlatformSkuId ?? ""))
                     .ToDictionaryAsync(m => m.PlatformSkuId ?? "", m => m.ProductId);
 
+                var mappedProductIds = mappings.Values.ToList();
+                var historicalCosts = await _context.InventoryBatches
+                    .Where(b => mappedProductIds.Contains(b.ProductId))
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new { ProductId = g.Key, LatestCost = g.OrderByDescending(x => x.ImportDate).Select(x => x.CostPrice).FirstOrDefault() })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.LatestCost);
+
+                var products = await _context.Products
+                    .Where(p => mappedProductIds.Contains(p.Id))
+                    .ToDictionaryAsync(p => p.Id);
+
                 foreach(var item in items)
                 {
                     if (mappings.TryGetValue(item.platformSku, out var productId))
                     {
+                        decimal fallbackCostPrice = historicalCosts.TryGetValue(productId, out var hc) && hc > 0 ? hc : 0;
+
+                        if (fallbackCostPrice == 0 && products.TryGetValue(productId, out var productObj))
+                        {
+                            fallbackCostPrice = productObj.StandardCost;
+                        }
+
                         newOrder.Items.Add(new Models.Orders.OrderItem
                         {
                             ProductId = productId,
                             Quantity = item.quantity,
                             UnitPrice = item.price,
-                            CostPrice = 0 // Tạm thời để 0, logic OrderService RTS sẽ tính sau
+                            CostPrice = fallbackCostPrice // Fix: Lấy giá vốn như OrderService
                         });
                     }
                 }
