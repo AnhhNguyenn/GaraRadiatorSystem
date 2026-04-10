@@ -429,7 +429,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
                     var totalStock = await _context.InventoryBatches
                         .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                        .SumAsync(b => (int?)b.RemainingQuantity) ?? 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
@@ -507,7 +507,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     var productId = kvp.Key;
                     var totalStock = await _context.InventoryBatches
                         .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                        .SumAsync(b => (int?)b.RemainingQuantity) ?? 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
