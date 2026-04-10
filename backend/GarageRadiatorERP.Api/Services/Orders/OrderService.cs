@@ -158,7 +158,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                     foreach (var itemDto in dto.Items)
                     {
-                        // Fix Hack số lượng âm (Lỗi 10)
                         if (itemDto.Quantity <= 0)
                             throw new ArgumentException($"Số lượng cho sản phẩm {itemDto.ProductId} phải lớn hơn 0.");
 
