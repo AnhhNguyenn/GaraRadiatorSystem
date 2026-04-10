@@ -42,9 +42,9 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     });
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      throw new Error("Request timed out. Vui lòng thử lại sau.");
+      return Promise.reject(new Error("Request timed out. Vui lòng thử lại sau."));
     }
-    throw new Error(`Network Error: ${error.message}`);
+    return Promise.reject(new Error(`Network Error: ${error.message}`));
   } finally {
     clearTimeout(timeoutId);
   }
@@ -57,12 +57,22 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
       return Promise.reject(new Error("Unauthorized")); // Sửa Lỗi 5: Đóng promise để tránh Memory Leak
     }
     if (response.status === 403) {
-      throw new Error("Bạn không có quyền thực hiện hành động này (403).");
+      return Promise.reject(new Error("Bạn không có quyền thực hiện hành động này (403)."));
     }
     if (response.status === 429) {
-      throw new Error("Hệ thống đang quá tải, vui lòng thử lại sau (429).");
+      return Promise.reject(new Error("Hệ thống đang quá tải, vui lòng thử lại sau (429)."));
     }
-    throw new Error(`API error (${response.status}): ${response.statusText}`);
+
+    let errorDetail = response.statusText;
+    try {
+      const errorBody = await response.text();
+      if (errorBody) {
+        errorDetail += ` - ${errorBody}`;
+      }
+    } catch (e) {
+      // Ignore body read error
+    }
+    return Promise.reject(new Error(`API error (${response.status}): ${errorDetail}`));
   }
 
   // Fix Cú lừa JSON Parser (Lỗi 53/19)
