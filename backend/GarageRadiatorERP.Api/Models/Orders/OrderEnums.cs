@@ -12,6 +12,7 @@ namespace GarageRadiatorERP.Api.Models.Orders
     {
         Pending,
         Reserved,
+        Shipped,
         Completed,
         Cancelled,
         Returned
