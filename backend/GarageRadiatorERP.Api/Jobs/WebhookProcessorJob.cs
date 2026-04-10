@@ -34,14 +34,22 @@ namespace GarageRadiatorERP.Api.Jobs
                     using var scope = _scopeFactory.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<GarageRadiatorERP.Api.Data.AppDbContext>();
 
-                    // Bối cảnh 3 (Phần 2): Sử dụng raw SQL UPDATE OUTPUT để lock hàng,
+                    // Bối cảnh 3 (Phần 2): Sử dụng raw SQL UPDATE RETURNING để lock hàng,
                     // tránh Race Condition (Duplicate Order) khi Scale-out nhiều server chạy song song.
+                    // Hệ thống đang dùng PostgreSQL, cần dùng FOR UPDATE SKIP LOCKED
                     var sql = @"
-                        UPDATE TOP (10) [PlatformPayloads] WITH (UPDLOCK, READPAST)
-                        SET [Status] = 'Processing'
-                        OUTPUT INSERTED.*
-                        WHERE [Status] = 'Pending'
-                           OR ([Status] = 'Processing' AND [CreatedAt] < DATEADD(minute, -10, GETUTCDATE()))
+                        UPDATE ""PlatformPayloads""
+                        SET ""Status"" = 'Processing'
+                        WHERE ""Id"" IN (
+                            SELECT ""Id""
+                            FROM ""PlatformPayloads""
+                            WHERE ""Status"" = 'Pending'
+                               OR (""Status"" = 'Processing' AND ""CreatedAt"" < NOW() - INTERVAL '10 minutes')
+                            ORDER BY ""CreatedAt"" ASC
+                            LIMIT 10
+                            FOR UPDATE SKIP LOCKED
+                        )
+                        RETURNING *;
                     ";
 
                     var pendingWebhooks = await dbContext.PlatformPayloads
