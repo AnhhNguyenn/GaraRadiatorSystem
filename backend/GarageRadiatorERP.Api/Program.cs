@@ -67,6 +67,8 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     .AddDefaultTokenProviders()
     .AddSignInManager<SignInManager<ApplicationUser>>();
 
+builder.Services.AddHttpClient(); // Cho phép DI gọi IHttpClientFactory
+
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddMemoryCache();
