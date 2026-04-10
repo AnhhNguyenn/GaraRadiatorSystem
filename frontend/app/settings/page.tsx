@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { BASE_URL } from '@/lib/apiClient';
 
 export default function SettingsPage() {
   const [storeName, setStoreName] = useState("Garage Radiator Parts");
@@ -31,6 +32,11 @@ export default function SettingsPage() {
   };
 
   const handleConnectShopee = () => {
+    window.location.href = `${BASE_URL}/platforms/auth/generate-oauth-url/shopee`;
+  };
+
+  const handleConnectTikTok = () => {
+    window.location.href = `${BASE_URL}/platforms/auth/generate-oauth-url/tiktok`;
     const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263").replace(/\/+$/, "");
     window.location.href = `${apiUrl}/api/v1/platforms/auth/generate-oauth-url/shopee`;
   };

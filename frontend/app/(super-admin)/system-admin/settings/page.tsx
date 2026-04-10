@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import { BASE_URL } from "@/lib/apiClient";
 
 interface SystemSetting {
   id: string;
@@ -20,6 +21,7 @@ export default function SuperAdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
+      const res = await fetch(`${BASE_URL}/system-admin/settings`, {
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
       const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
         credentials: "include"
@@ -40,7 +42,7 @@ export default function SuperAdminSettingsPage() {
       const payload = settings.map(s => ({ settingKey: s.settingKey, settingValue: s.settingValue }));
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
 
-      const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
+      const res = await fetch(`${BASE_URL}/system-admin/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
