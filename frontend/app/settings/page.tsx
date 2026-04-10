@@ -31,12 +31,12 @@ export default function SettingsPage() {
   };
 
   const handleConnectShopee = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263";
     window.location.href = `${apiUrl}/api/v1/platforms/auth/generate-oauth-url/shopee`;
   };
 
   const handleConnectTikTok = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263";
     window.location.href = `${apiUrl}/api/v1/platforms/auth/generate-oauth-url/tiktok`;
   };
 
