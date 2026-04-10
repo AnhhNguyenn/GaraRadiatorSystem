@@ -1,22 +1,28 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
+import { Product } from "@/types/product";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, ShoppingCart, Printer, CreditCard, User, Package } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 
 interface CartItem {
-  product: any;
+  product: Product;
   quantity: number;
 }
 
 export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [customerInfo, setCustomerInfo] = useState({ name: 'Khách lẻ', phone: '' });
   
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+    const loadProducts = async () => {
+    try {
+      const data = await api.products.list();
+      setProducts(data?.data || data || []);
   const loadProducts = async () => {
     try {
       const data = await api.products.list();
@@ -51,6 +57,7 @@ export default function POSPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const addToCart = (product: Product) => {
   const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
@@ -76,7 +83,7 @@ export default function POSPage() {
           productId: item.product.id,
           productName: item.product.name,
           quantity: item.quantity,
-          unitPrice: item.product.price || 0
+          unitPrice: item.product.retailPrice || 0
         }))
       };
       
@@ -90,6 +97,7 @@ export default function POSPage() {
     }
   };
 
+  const totalAmount = cart.reduce((sum, item) => sum + (item.product.retailPrice || 0) * item.quantity, 0);
   // ⚡ Bolt Optimization: Memoize the total amount calculation to prevent O(N) recalculations on every render.
   // Impact: O(1) during unrelated re-renders (like typing in search).
   const totalAmount = useMemo(() => cart.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0), [cart]);
@@ -139,7 +147,7 @@ export default function POSPage() {
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{p.sku}</div>
                   <div className="flex items-center justify-between">
                     <div className="text-base font-black text-slate-900 tracking-tight">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price || 0)}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.retailPrice || 0)}
                     </div>
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 text-lg font-bold">
                       +
@@ -207,7 +215,7 @@ export default function POSPage() {
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 truncate mb-1">{item.product.name}</h4>
                   <div className="text-primary font-black text-sm tracking-tight">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.product.price || 0)}
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.product.retailPrice || 0)}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
@@ -293,7 +301,7 @@ export default function POSPage() {
                   <div className="text-[8px] text-slate-500 uppercase">{item.product.sku}</div>
                 </td>
                 <td className="py-3 text-right font-black align-top">
-                  {new Intl.NumberFormat('vi-VN').format((item.product.price || 0) * item.quantity)}
+                  {new Intl.NumberFormat('vi-VN').format((item.product.retailPrice || 0) * item.quantity)}
                 </td>
               </tr>
             ))}
