@@ -229,7 +229,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 Order = order, // Entity Framework tự động mapping Khóa ngoại
                                 ProductId = itemDto.ProductId,
                                 Batch = batch,
-                                Type = "sale",
+                                Type = Models.Inventory.InventoryTransactionTypes.Sale,
                                 QuantityChange = -qtyFromThisBatch,
                                 ReferenceDocument = "POS Order", // Có thể lưu chuỗi mô tả
                                 CreatedAt = DateTime.UtcNow // Lỗi 3
@@ -287,7 +287,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                                 Order = order, // Entity Framework tự động mapping Khóa ngoại
                                 ProductId = itemDto.ProductId,
                                 Batch = null, // Bán âm thì chưa có lô thực tế
-                                Type = "backorder",
+                                Type = Models.Inventory.InventoryTransactionTypes.Backorder,
                                 QuantityChange = -qtyToFulfill,
                                 ReferenceDocument = "POS Order (Negative/Backorder)",
                                 CreatedAt = DateTime.UtcNow
@@ -367,12 +367,12 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null) throw new ArgumentException("Order not found");
-            if (order.Status == "Cancelled" || order.Status == "Returned") throw new InvalidOperationException("Order is already cancelled or returned.");
+            if (order.Status == OrderStatus.Cancelled.ToString() || order.Status == OrderStatus.Returned.ToString()) throw new InvalidOperationException("Order is already cancelled or returned.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                order.Status = "Cancelled";
+                order.Status = OrderStatus.Cancelled.ToString();
                 order.Notes = (order.Notes + $"\nCancelled Reason: {reason}").Trim();
 
                 var syncStockDict = new Dictionary<Guid, int>();
@@ -388,7 +388,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = item.InventoryBatchId,
                             OrderId = order.Id,
-                            Type = "cancel_restore",
+                            Type = Models.Inventory.InventoryTransactionTypes.CancelRestore,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Cancel Order",
                             CreatedAt = DateTime.UtcNow
@@ -404,7 +404,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = null,
                             OrderId = order.Id,
-                            Type = "cancel_restore_backorder",
+                            Type = Models.Inventory.InventoryTransactionTypes.CancelRestoreBackorder,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Cancel Order (Restore Backorder)",
                             CreatedAt = DateTime.UtcNow
@@ -452,12 +452,12 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
             if (order == null) throw new ArgumentException("Order not found");
-            if (order.Status != "Shipped" && order.Status != "Completed") throw new InvalidOperationException("Only shipped or completed orders can be returned.");
+            if (order.Status != OrderStatus.Shipped.ToString() && order.Status != OrderStatus.Completed.ToString()) throw new InvalidOperationException("Only shipped or completed orders can be returned.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                order.Status = "Returned";
+                order.Status = OrderStatus.Returned.ToString();
 
                 var syncStockDict = new Dictionary<Guid, int>();
 
@@ -472,7 +472,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = item.InventoryBatchId,
                             OrderId = order.Id,
-                            Type = "return",
+                            Type = Models.Inventory.InventoryTransactionTypes.Return,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Return Order",
                             CreatedAt = DateTime.UtcNow
@@ -487,7 +487,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             ProductId = item.ProductId,
                             BatchId = null,
                             OrderId = order.Id,
-                            Type = "return_backorder",
+                            Type = Models.Inventory.InventoryTransactionTypes.ReturnBackorder,
                             QuantityChange = item.Quantity,
                             ReferenceDocument = "Return Order (Restore Backorder)",
                             CreatedAt = DateTime.UtcNow
