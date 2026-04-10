@@ -419,6 +419,14 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 await _context.SaveChangesAsync();
 
                 // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                // Optimized: Prevent N+1 query by fetching all required inventory batches in a single query
+                var productIds = syncStockDict.Keys.ToList();
+                var inventoryStocks = await _context.InventoryBatches
+                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
@@ -427,9 +435,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     // Trong hệ thống này kho dựa vào RemainingQuantity của Batches.
                     // Nếu bán âm (chỉ có Transaction), Stock có thể được tính theo Transaction.
                     // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                    var totalStock = inventoryStocks.ContainsKey(productId) ? inventoryStocks[productId] : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
@@ -502,12 +508,18 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 await _context.SaveChangesAsync();
 
                 // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
+                // Optimized: Prevent N+1 query by fetching all required inventory batches in a single query
+                var productIds = syncStockDict.Keys.ToList();
+                var inventoryStocks = await _context.InventoryBatches
+                    .Where(b => productIds.Contains(b.ProductId) && b.RemainingQuantity > 0)
+                    .GroupBy(b => b.ProductId)
+                    .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
+                    .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
-                    var totalStock = await _context.InventoryBatches
-                        .Where(b => b.ProductId == productId && b.RemainingQuantity > 0)
-                        .SumAsync(b => b.RemainingQuantity);
+                    var totalStock = inventoryStocks.ContainsKey(productId) ? inventoryStocks[productId] : 0;
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
                 }
