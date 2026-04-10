@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>PerfTest.OrderServiceBenchmark-20260410-030831</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.30GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.103
+  [Host]     : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method     </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Ratio</th><th>Gen0</th><th>Gen1</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>NPlus1QueryAsync</td><td>4,338.0 &mu;s</td><td>38.18 &mu;s</td><td>29.81 &mu;s</td><td>1.00</td><td>78.1250</td><td>7.8125</td><td>1966.02 KB</td><td>1.00</td>
+</tr><tr><td>BatchedQueryAsync</td><td>314.8 &mu;s</td><td>2.37 &mu;s</td><td>1.85 &mu;s</td><td>0.07</td><td>7.8125</td><td>0.9766</td><td>196.08 KB</td><td>0.10</td>
+</tr></tbody></table>
+</body>
+</html>
