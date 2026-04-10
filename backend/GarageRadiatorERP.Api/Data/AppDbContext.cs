@@ -127,7 +127,6 @@ namespace GarageRadiatorERP.Api.Data
                 }
             }
 
-            // Fix SQL Server sập vì Index nvarchar(max) (Lỗi 22)
             builder.Entity<Product>().Property(p => p.SKU).HasMaxLength(100);
             builder.Entity<Product>().Property(p => p.Barcode).HasMaxLength(100);
 
