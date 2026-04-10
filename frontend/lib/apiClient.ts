@@ -1,7 +1,6 @@
 export const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fix: Sập FE vì biến môi trường (Lỗi 48/45) và Lỗi Double Slash URL (Lỗi 49/34)
 
-export const API_URL = (RAW_API_URL || "http://localhost:5263").replace(/\/$/, "");
 export const API_URL = (RAW_API_URL || "http://localhost:5263").replace(/\/+$/, "");
 // Add `/api/v1` for versioning
 export const BASE_URL = `${API_URL}/api/v1`;
@@ -41,11 +40,6 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
       credentials: "include", // Tự động đính kèm HttpOnly cookies
       signal: controller.signal,
     });
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      return Promise.reject(new Error("Request timed out. Vui lòng thử lại sau."));
-    }
-    return Promise.reject(new Error(`Network Error: ${error.message}`));
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
