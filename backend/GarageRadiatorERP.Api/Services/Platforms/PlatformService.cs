@@ -317,7 +317,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     {
                         using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                         if (!string.IsNullOrEmpty(accessToken))
-                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                            request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
                         request.Content = global::System.Net.Http.Json.JsonContent.Create(new
                         {
@@ -338,7 +338,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     {
                         using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                         if (!string.IsNullOrEmpty(accessToken))
-                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                            request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
                         request.Content = global::System.Net.Http.Json.JsonContent.Create(new
                         {
