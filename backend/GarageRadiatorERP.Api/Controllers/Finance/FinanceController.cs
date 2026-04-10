@@ -49,7 +49,7 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState); // Fix Lỗi DTO Validation (Lỗi 38)
+                return BadRequest(ModelState);
             }
 
             var result = await _financeService.CreateExpenseAsync(expenseDto, cancellationToken);
