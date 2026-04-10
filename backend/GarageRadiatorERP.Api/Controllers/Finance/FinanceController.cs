@@ -4,7 +4,7 @@ using GarageRadiatorERP.Api.Services.Finance;
 namespace GarageRadiatorERP.Api.Controllers.Finance
 {
     [ApiController]
-    [Route("api/v1/finance")] // Fix Versioning API (Lỗi 8 / 53)
+    [Route("api/v1/finance")]
     public class FinanceController : ControllerBase
     {
         private readonly IFinanceService _financeService;
