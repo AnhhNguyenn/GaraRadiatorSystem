@@ -23,9 +23,10 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { InventoryBatch } from '@/types/inventory';
 
 export default function InventoryPage() {
-  const [batches, setBatches] = useState<any[]>([]);
+  const [batches, setBatches] = useState<InventoryBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalValue: 0,
@@ -38,7 +39,7 @@ export default function InventoryPage() {
   const [isInboundModalOpen, setIsInboundModalOpen] = useState(false);
   const [isOutboundModalOpen, setIsOutboundModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<any>(null);
+  const [selectedBatch, setSelectedBatch] = useState<InventoryBatch | null>(null);
 
   useEffect(() => {
     loadBatches();
@@ -50,8 +51,8 @@ export default function InventoryPage() {
       const data = await api.inventory.batches();
       setBatches(data);
       
-      const totalValue = data.reduce((sum: number, b: any) => sum + (b.remaining * b.costPrice), 0);
-      const lowStock = data.filter((b: any) => b.remaining < 10).length;
+      const totalValue = data.reduce((sum: number, b: InventoryBatch) => sum + (b.remaining * b.costPrice), 0);
+      const lowStock = data.filter((b: InventoryBatch) => b.remaining < 10).length;
 
       setStats({
         totalValue,
