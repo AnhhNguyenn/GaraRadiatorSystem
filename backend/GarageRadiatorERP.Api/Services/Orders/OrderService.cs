@@ -239,24 +239,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             totalGoodsValue += (qtyFromThisBatch * itemDto.UnitPrice);
                             totalVatAmount += lineVat;
                             totalPitAmount += linePit;
-
-                            // Fix Spam & Ngưỡng báo cáo tồn kho (Lỗi 42, Lỗi 44)
-                            int currentTotalStock = allBatches.Where(b => b.ProductId == itemDto.ProductId).Sum(b => b.RemainingQuantity);
-                            int minStockLevel = products.TryGetValue(itemDto.ProductId, out var prod) ? prod.MinStockLevel : minStockAlertConfig;
-
-                            if (currentTotalStock < minStockLevel)
-                            {
-                                // Không gửi ngay lập tức để tránh Spam nếu Transaction rollback (Lỗi 43)
-                                notificationsToSend.Add(new
-                                {
-                                    message = $"⚠️ Cảnh báo tồn kho: Mã sản phẩm {itemDto.ProductId} sắp hết. Tổng tồn kho hiện tại: {currentTotalStock}.",
-                                    type = "warning",
-                                    time = DateTime.UtcNow
-                                });
-                            }
-
-                            // Gọi đẩy tồn kho sau khi đã trừ đi số lượng bán
-                            await _platformService.SyncStockToPlatformAsync(itemDto.ProductId, currentTotalStock < minStockLevel ? syncLowStockVal : currentTotalStock);
                         }
 
                         if (qtyToFulfill > 0)
@@ -298,6 +280,24 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             totalVatAmount += lineVat;
                             totalPitAmount += linePit;
                         }
+
+                        // Fix Spam & Ngưỡng báo cáo tồn kho (Lỗi 42, Lỗi 44)
+                        int currentTotalStock = allBatches.Where(b => b.ProductId == itemDto.ProductId).Sum(b => b.RemainingQuantity);
+                        int minStockLevel = products.TryGetValue(itemDto.ProductId, out var prod) ? prod.MinStockLevel : minStockAlertConfig;
+
+                        if (currentTotalStock < minStockLevel)
+                        {
+                            // Không gửi ngay lập tức để tránh Spam nếu Transaction rollback (Lỗi 43)
+                            notificationsToSend.Add(new
+                            {
+                                message = $"⚠️ Cảnh báo tồn kho: Mã sản phẩm {itemDto.ProductId} sắp hết. Tổng tồn kho hiện tại: {currentTotalStock}.",
+                                type = "warning",
+                                time = DateTime.UtcNow
+                            });
+                        }
+
+                        // Gọi đẩy tồn kho sau khi đã trừ đi số lượng bán
+                        await _platformService.SyncStockToPlatformAsync(itemDto.ProductId, currentTotalStock < minStockLevel ? syncLowStockVal : currentTotalStock);
                     }
 
                     order.TotalAmount = totalAmount;
