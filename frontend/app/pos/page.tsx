@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Product } from "@/types/product";
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, ShoppingCart, Printer, CreditCard, User, Package } from 'lucide-react';
 import { api } from '@/lib/apiClient';
 
@@ -22,6 +23,10 @@ export default function POSPage() {
     try {
       const data = await api.products.list();
       setProducts(data?.data || data || []);
+  const loadProducts = async () => {
+    try {
+      const data = await api.products.list();
+      setProducts(data);
     } catch (e) {
       console.error(e);
     }
@@ -53,6 +58,7 @@ export default function POSPage() {
   }, []);
 
   const addToCart = (product: Product) => {
+  const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -92,11 +98,16 @@ export default function POSPage() {
   };
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.product.retailPrice || 0) * item.quantity, 0);
+  // ⚡ Bolt Optimization: Memoize the total amount calculation to prevent O(N) recalculations on every render.
+  // Impact: O(1) during unrelated re-renders (like typing in search).
+  const totalAmount = useMemo(() => cart.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0), [cart]);
 
-  const filteredProducts = products.filter(p => 
+  // ⚡ Bolt Optimization: Memoize the filtered products list.
+  // Impact: Prevents O(N) string matching operations on the entire product catalog when the cart updates.
+  const filteredProducts = useMemo(() => products.filter(p =>
     (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ), [products, searchTerm]);
 
   return (
     <div className="h-[calc(100vh-6rem)] flex gap-6 print:block print:h-auto pb-6">
