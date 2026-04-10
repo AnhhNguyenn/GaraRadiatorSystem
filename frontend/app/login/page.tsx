@@ -22,7 +22,7 @@ export default function LoginPage() {
     const toastId = toast.loading("Đang kết nối hệ thống an toàn...");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263";
       const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
