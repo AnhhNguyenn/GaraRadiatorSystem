@@ -75,7 +75,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 bool customerExists = await _context.Customers.AnyAsync(c => c.Id == dto.CustomerId.Value, cancellationToken);
                 if (!customerExists)
                 {
-                    throw new ArgumentException("Khách hàng không tồn tại."); // Fix Crash POS CustomerId (Lỗi 16/42)
+                    dto.CustomerId = null;
                 }
             }
 
