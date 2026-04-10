@@ -60,7 +60,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 Amount = createDto.Amount,
                 Note = createDto.Note,
                 // Fix thời gian ghi nhận (Lỗi 17 / 39)
-                Date = createDto.ExpenseDate ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
+                Date = createDto.ExpenseDate?.ToUniversalTime() ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
             };
 
             _context.Expenses.Add(expense);
