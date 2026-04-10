@@ -17,7 +17,6 @@ namespace GarageRadiatorERP.Api.Utilities
 
         public EncryptionUtility(Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
-            // Lỗi 30: Không hardcode key
             var configKey = configuration["Encryption:SecretKey"];
             var envKey = Environment.GetEnvironmentVariable("ERP_ENCRYPTION_KEY");
             var keyToUse = !string.IsNullOrEmpty(envKey) ? envKey : configKey;

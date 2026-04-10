@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace GarageRadiatorERP.Api.Controllers.Products
 {
     [ApiController]
-    [Route("api/v1/[controller]")] // Fix API Versioning
+    [Route("api/v1/[controller]")]
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
