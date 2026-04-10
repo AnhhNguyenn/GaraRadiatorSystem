@@ -47,8 +47,19 @@ namespace GarageRadiatorERP.Api.Controllers.Platforms
             // Set thêm một Cookie "oauth_correlation" với SameSite=Lax (vẫn cho phép callback get top-level navigation, tốt hơn Strict)
             Response.Cookies.Append("oauth_correlation", encryptedState, new Microsoft.AspNetCore.Http.CookieOptions { HttpOnly = true, SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax, Secure = true, MaxAge = TimeSpan.FromMinutes(15) });
 
-            // Giả lập trả về URL. Trong thực tế lấy từ Config tùy theo Tiktok/Shopee
-            return Ok(new { url = $"https://{platform.ToLower()}.com/oauth/authorize?client_id=xxx&state={encryptedState}&redirect_uri=xxx" });
+            string redirectUri = $"{Request.Scheme}://{Request.Host}/api/v1/platforms/auth/{platform.ToLower()}/callback";
+            string encodedRedirectUri = Uri.EscapeDataString(redirectUri);
+
+            string clientId = platform.ToLower() switch
+            {
+                "tiktok" => _configuration["TikTok:AppKey"],
+                "shopee" => _configuration["Shopee:PartnerId"],
+                _ => _configuration[$"{platform}:ClientId"]
+            };
+
+            string authUrl = $"https://{platform.ToLower()}.com/oauth/authorize?client_id={clientId}&state={encryptedState}&redirect_uri={encodedRedirectUri}";
+
+            return Ok(new { url = authUrl });
         }
 
         [HttpGet("shopee/callback")]
