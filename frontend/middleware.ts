@@ -23,7 +23,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
      * - login (public auth page)
+     * - change-password (public auth page for initial setup)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|login).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|login|change-password).*)',
   ],
 };

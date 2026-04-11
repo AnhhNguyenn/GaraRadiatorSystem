@@ -33,6 +33,7 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.requirePasswordChange) {
+           sessionStorage.setItem("change_password_user_id", data.userId);
            toast.success(data.message || "Xác thực thành công. Vui lòng đổi mật khẩu mới.", { id: toastId });
            router.push("/change-password");
         } else {
