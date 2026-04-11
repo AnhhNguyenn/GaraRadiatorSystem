@@ -6,8 +6,6 @@ namespace GarageRadiatorERP.Api.Utilities
 {
     public static class TimeUtility
     {
-        // Fix Timezone: Trả về giờ Local (SE Asia / ICT UTC+7) thay vì UTC thuần
-        // Giải quyết lỗi kế toán và chốt đơn bị lệch ngày
         public static DateTime GetLocalTime(string primaryTimeZoneId = "SE Asia Standard Time", string fallbackTimeZoneId = "Asia/Ho_Chi_Minh")
         {
             return GetLocalTimeInternal("SE Asia Standard Time", "Asia/Ho_Chi_Minh");

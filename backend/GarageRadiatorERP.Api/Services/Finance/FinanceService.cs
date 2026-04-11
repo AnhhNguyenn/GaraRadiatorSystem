@@ -59,8 +59,7 @@ namespace GarageRadiatorERP.Api.Services.Finance
                 Category = createDto.Category,
                 Amount = createDto.Amount,
                 Note = createDto.Note,
-                // Fix thời gian ghi nhận (Lỗi 17 / 39)
-                Date = createDto.ExpenseDate?.ToUniversalTime() ?? DateTime.UtcNow // Lỗi 3: Lưu DB phải dùng UTC
+                Date = createDto.ExpenseDate?.ToUniversalTime() ?? DateTime.UtcNow
             };
 
             _context.Expenses.Add(expense);
@@ -83,9 +82,6 @@ namespace GarageRadiatorERP.Api.Services.Finance
             var start = startDate.Date;
             var endInclusive = endDate.Date.AddDays(1); // Luôn luôn vét cạn đến 00:00:00 của ngày tiếp theo
 
-            // Fix Kéo sập Server (Memory Bomb) (Lỗi 19 / 36) - Tính tổng trực tiếp bằng DB
-            // Fix Lỗi 57: Thảm họa SumAsync trên tập rỗng gây crash 500
-            // Fix Lỗi 62: Báo cáo tài chính ảo do quên lọc trạng thái "Đã thanh toán"
             var paidStatus = Models.Orders.PaymentStatus.Paid.ToString();
 
             var orderAggregates = await _context.Orders

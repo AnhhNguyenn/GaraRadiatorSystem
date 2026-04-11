@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace GarageRadiatorERP.Api.Controllers.Orders
 {
     [ApiController]
-    [Route("api/v1/[controller]")] // Versioning
+    [Route("api/v1/[controller]")]
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -27,11 +27,6 @@ namespace GarageRadiatorERP.Api.Controllers.Orders
         [HttpPost("pos")]
         public async Task<ActionResult<OrderDto>> CreatePOSOrder([FromBody] CreatePOSOrderDto createDto, global::System.Threading.CancellationToken cancellationToken)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
                 var order = await _orderService.CreatePOSOrderAsync(createDto, cancellationToken);

@@ -281,13 +281,11 @@ namespace GarageRadiatorERP.Api.Services.Orders
                             totalPitAmount += linePit;
                         }
 
-                        // Fix Spam & Ngưỡng báo cáo tồn kho (Lỗi 42, Lỗi 44)
                         int currentTotalStock = allBatches.Where(b => b.ProductId == itemDto.ProductId).Sum(b => b.RemainingQuantity);
                         int minStockLevel = products.TryGetValue(itemDto.ProductId, out var prod) ? prod.MinStockLevel : minStockAlertConfig;
 
                         if (currentTotalStock < minStockLevel)
                         {
-                            // Không gửi ngay lập tức để tránh Spam nếu Transaction rollback (Lỗi 43)
                             notificationsToSend.Add(new
                             {
                                 message = $"⚠️ Cảnh báo tồn kho: Mã sản phẩm {itemDto.ProductId} sắp hết. Tổng tồn kho hiện tại: {currentTotalStock}.",
@@ -314,7 +312,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                     await _context.SaveChangesAsync(cancellationToken);
                     await transactionDbContext.CommitAsync(cancellationToken);
 
-                    // Send Notifications after Commit (Lỗi 43)
                     var currentTenantId = _tenantProvider.GetTenantId();
                     var adminGroupName = currentTenantId.HasValue ? $"InventoryAdmins_{currentTenantId.Value}" : "InventoryAdmins";
 
@@ -416,7 +413,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                 await _context.SaveChangesAsync();
 
-                // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
                 var productIds = syncStockDict.Keys.ToList();
                 var stockSums = new Dictionary<Guid, int>();
 
@@ -433,11 +429,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
-
-                    // Tính cả tồn kho thực (RemainingQuantity) lẫn giao dịch chưa phân bổ nếu cần,
-                    // Trong hệ thống này kho dựa vào RemainingQuantity của Batches.
-                    // Nếu bán âm (chỉ có Transaction), Stock có thể được tính theo Transaction.
-                    // Dựa trên Code hiện tại, tổng tồn được tính bằng Sum(RemainingQuantity) ở Batch > 0.
                     var totalStock = stockSums.GetValueOrDefault(productId, 0);
 
                     await _platformService.SyncStockToPlatformAsync(productId, totalStock);
@@ -515,7 +506,6 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                 await _context.SaveChangesAsync();
 
-                // Sửa Lỗi 4 (Đồng bộ tồn kho sai số lượng) - Lấy tổng kho SAU KHI lưu vào DB
                 var productIds = syncStockDict.Keys.ToList();
                 var stockSums = new Dictionary<Guid, int>();
 
