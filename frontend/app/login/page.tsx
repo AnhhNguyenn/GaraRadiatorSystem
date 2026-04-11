@@ -24,8 +24,6 @@ export default function LoginPage() {
 
     try {
       const response = await fetch(`${BASE_URL}/auth/login`, {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5263").replace(/\/+$/, "");
-      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
