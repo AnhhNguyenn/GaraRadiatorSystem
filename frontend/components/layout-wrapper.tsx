@@ -1,11 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isLoginPage = pathname === '/login' || pathname === '/change-password';
+  const isSuperAdminPage = pathname.startsWith('/super-admin');
+
+  if (isLoginPage || isSuperAdminPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background font-sans">

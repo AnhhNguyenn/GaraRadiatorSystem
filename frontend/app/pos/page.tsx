@@ -4,6 +4,7 @@ import { Product } from "@/types/product";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, ShoppingCart, Printer, CreditCard, User, Package } from 'lucide-react';
 import { api } from '@/lib/apiClient';
+import toast from 'react-hot-toast';
 
 interface CartItem {
   product: Product;
@@ -18,16 +19,18 @@ export default function POSPage() {
   
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const loadProducts = async () => {
-    try {
-      const data = await api.products.list();
-      setProducts(data?.data || data || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   useEffect(() => {
+    let isMounted = true;
+    const loadProducts = async () => {
+      try {
+        const data = await api.products.list();
+        if (isMounted) {
+          setProducts(data?.data || data || []);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
     loadProducts();
     
     // Đăng ký Phím tắt (Hotkeys)
@@ -67,7 +70,10 @@ export default function POSPage() {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return alert('Giỏ hàng trống!');
+    if (cart.length === 0) {
+      toast.error('Giỏ hàng đang trống!');
+      return;
+    }
     try {
       const payload = {
         source: 'POS',
@@ -82,12 +88,15 @@ export default function POSPage() {
       };
       
       const res = await api.orders.createPOS(payload);
-      alert('Tạo đơn hàng POS thành công! ID: ' + res.id + '\nNhấn OK hoặc F9 để in hóa đơn.');
-      window.print();
-      setCart([]);
-    } catch (e) {
+      toast.success(`Tạo đơn hàng POS thành công! ID: ${res.id}`);
+      // Give the toast a moment to display before triggering print dialog which blocks the thread
+      setTimeout(() => {
+        window.print();
+        setCart([]);
+      }, 500);
+    } catch (e: any) {
       console.error(e);
-      alert('Lỗi khi tạo đơn hàng POS');
+      toast.error(e.message || 'Lỗi tạo đơn hàng POS. Vui lòng thử lại.');
     }
   };
 

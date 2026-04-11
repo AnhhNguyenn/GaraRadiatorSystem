@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { BASE_URL } from '@/lib/apiClient';
+import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const [storeName, setStoreName] = useState("Garage Radiator Parts");
@@ -27,7 +28,7 @@ export default function SettingsPage() {
     // Bỏ lưu dữ liệu không cần thiết vào localStorage, có thể sau này gọi API cập nhật db.
     setTimeout(() => {
       setSaving(false);
-      alert("Đã lưu cấu hình thành công!");
+      toast.success("Đã lưu cấu hình thành công!");
     }, 500);
   };
 
