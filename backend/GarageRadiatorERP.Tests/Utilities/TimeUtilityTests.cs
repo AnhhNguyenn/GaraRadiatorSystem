@@ -100,6 +100,8 @@ namespace GarageRadiatorERP.Tests.Utilities
             var timeDifference = result - utcNowBefore;
 
             timeDifference.TotalHours.Should().BeInRange(6.99, 7.01, "Fallback adds 7 hours to UTC");
+            result.Kind.Should().BeOneOf(DateTimeKind.Utc, DateTimeKind.Unspecified); // Because utcNow.AddHours(7) preserves Utc Kind
+            result.Kind.Should().Be(DateTimeKind.Unspecified);
         }
     }
 }

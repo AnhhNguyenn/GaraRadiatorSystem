@@ -425,6 +425,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
 
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
@@ -434,6 +435,11 @@ namespace GarageRadiatorERP.Api.Services.Orders
                 }
 
                 await transaction.CommitAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception("Quá nhiều giao dịch đồng thời, vui lòng thử lại sau (Concurrency Conflict).");
             }
             catch
             {
@@ -511,6 +517,7 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
+
 
                 foreach(var kvp in syncStockDict)
                 {
