@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Store, Printer, Link as LinkIcon, Users, Shield, CheckCircle2, Globe, Bell, History } from 'lucide-react';
+import { Save, Store, Printer, Link as LinkIcon, Users, Shield, CheckCircle2, Globe, Bell, History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,10 +14,14 @@ import {
 import { cn } from '@/lib/utils';
 import { BASE_URL } from '@/lib/apiClient';
 import toast from 'react-hot-toast';
+import { api, BASE_URL } from '@/lib/apiClient';
+import toast from 'react-hot-toast';
+import { Modal } from '@/components/ui/modal';
 
 export default function SettingsPage() {
   const [storeName, setStoreName] = useState("Garage Radiator Parts");
   const [saving, setSaving] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
   useEffect(() => {
     // Để mock, ta bỏ việc lấy từ localStorage
@@ -38,6 +42,25 @@ export default function SettingsPage() {
 
   const handleConnectTikTok = () => {
     window.location.href = `${BASE_URL}/platforms/auth/generate-oauth-url/tiktok`;
+  };
+
+  const handleCreateStaff = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      password: formData.get('password'),
+      role: formData.get('role'),
+    };
+
+    try {
+      await api.auth.createStaff(data);
+      toast.success('Tạo tài khoản nhân viên thành công!');
+      setIsStaffModalOpen(false);
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi tạo tài khoản nhân viên.');
+    }
   };
 
   return (
@@ -176,13 +199,19 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Bảo mật */}
+          {/* Bảo mật & Phân quyền */}
           <div className="ios-card overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-3">
-              <div className="p-2 bg-rose-50 rounded-xl">
-                <Shield className="h-5 w-5 text-rose-500" />
+            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-rose-50 rounded-xl">
+                  <Shield className="h-5 w-5 text-rose-500" />
+                </div>
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Bảo mật & Phân quyền</h2>
               </div>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Bảo mật</h2>
+              <Button onClick={() => setIsStaffModalOpen(true)} size="sm" className="rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
+                <Plus className="mr-2 h-4 w-4" />
+                Thêm nhân viên
+              </Button>
             </div>
             <div className="p-6 space-y-4">
               <Button variant="outline" className="w-full justify-start rounded-xl text-xs font-bold gap-3 border-slate-100 hover:bg-slate-50">
@@ -197,6 +226,45 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Staff Account Creation Modal */}
+      <Modal isOpen={isStaffModalOpen} onClose={() => setIsStaffModalOpen(false)} title="Thêm tài khoản nhân viên">
+        <form onSubmit={handleCreateStaff} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Tên nhân viên *</label>
+              <Input name="name" required placeholder="Nguyễn Văn A" />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email *</label>
+              <Input name="email" type="email" required placeholder="nhanvien@gara.com" />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Mật khẩu khởi tạo *</label>
+              <Input name="password" type="password" required placeholder="********" />
+              <p className="text-xs text-slate-500 mt-1">Nhân viên sẽ được yêu cầu đổi mật khẩu ở lần đăng nhập đầu tiên.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vai trò *</label>
+              <Select name="role" required defaultValue="Staff">
+                <SelectTrigger className="w-full h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600">
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="Staff">Nhân viên</SelectItem>
+                  <SelectItem value="Cashier">Thu ngân</SelectItem>
+                  <SelectItem value="Mechanic">Thợ máy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="mt-8 flex justify-end gap-3 border-t border-slate-50 pt-6">
+            <Button variant="ghost" type="button" onClick={() => setIsStaffModalOpen(false)} className="rounded-xl">Hủy</Button>
+            <Button type="submit" className="rounded-xl bg-primary px-8">Tạo tài khoản</Button>
+          </div>
+        </form>
+      </Modal>
 
       <div className="flex justify-end pt-4 px-1">
         <Button onClick={handleSave} disabled={saving} className="rounded-2xl px-12 h-14 bg-primary shadow-xl shadow-primary/25 text-lg">

@@ -13,6 +13,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const isSuperAdminPage = pathname.startsWith('/super-admin');
 
   if (isLoginPage || isSuperAdminPage) {
+
+  if (isLoginPage) {
     return <>{children}</>;
   }
 

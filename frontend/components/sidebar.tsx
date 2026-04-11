@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/apiClient';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
@@ -14,10 +15,13 @@ import {
   BarChart3,
   Settings,
   MessageSquare,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/apiClient';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -73,6 +77,24 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     if (!item.roles) return true;
     return item.roles.includes(userRole) || userRole === 'SuperAdmin';
   });
+  const router = useRouter();
+  const [user, setUser] = useState<{ email: string, role: string } | null>(null);
+
+  useEffect(() => {
+    api.auth.me().then(data => {
+      setUser(data);
+    }).catch(err => console.error("Failed to fetch user profile", err));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      router.push('/login');
+    }
+  };
 
   return (
     <div className="flex h-full w-full flex-col bg-white print:hidden border-r border-border/10">
@@ -126,7 +148,24 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           <div className="flex flex-col">
             <span className="text-sm font-bold text-slate-900 leading-none mb-1 truncate max-w-[120px]">{userName}</span>
             <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{userRoleDisplay}</span>
+      <div className="p-4 sm:p-6 mt-auto">
+        <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 sm:p-3 rounded-3xl border border-slate-100 group">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shadow-inner shrink-0">
+              {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="flex flex-col truncate max-w-[100px] sm:max-w-[120px]">
+              <span className="text-sm font-bold text-slate-900 leading-none mb-1 truncate" title={user?.email || 'Người dùng'}>{user?.email || 'Người dùng'}</span>
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 truncate">{user?.role || 'Vai trò'}</span>
+            </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+            title="Đăng xuất"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </div>

@@ -1,0 +1,44 @@
+<<<<<<< SEARCH
+        [HttpPost]
+        public async Task<ActionResult<ProductDto>> CreateProduct(CreateProductDto createDto)
+        {
+            var product = await _productService.CreateProductAsync(createDto);
+            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+        }
+
+        [HttpGet("categories")]
+=======
+        [HttpPost]
+        public async Task<ActionResult<ProductDto>> CreateProduct(CreateProductDto createDto)
+        {
+            var product = await _productService.CreateProductAsync(createDto);
+            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateProduct(Guid id, CreateProductDto updateDto, [FromServices] GarageRadiatorERP.Api.Data.AppDbContext _context)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            product.Name = updateDto.Name;
+            product.StandardCost = updateDto.StandardCost;
+            // Simplified update for demo
+
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProduct(Guid id, [FromServices] GarageRadiatorERP.Api.Data.AppDbContext _context)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpGet("categories")]
+>>>>>>> REPLACE
