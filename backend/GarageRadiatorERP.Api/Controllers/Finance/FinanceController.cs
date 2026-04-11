@@ -17,7 +17,6 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         [HttpGet("profit-report")]
         public async Task<IActionResult> GetProfitReport([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, CancellationToken cancellationToken)
         {
-            // Trả lại logic Timezone chuẩn (Lỗi 3) - Lưu và xử lý UTC, hiển thị do Frontend lo
             var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var end = endDate ?? DateTime.UtcNow;
 
@@ -47,11 +46,6 @@ namespace GarageRadiatorERP.Api.Controllers.Finance
         [HttpPost("expenses")]
         public async Task<IActionResult> AddExpense([FromBody] GarageRadiatorERP.Api.DTOs.Finance.CreateExpenseDto expenseDto, CancellationToken cancellationToken)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await _financeService.CreateExpenseAsync(expenseDto, cancellationToken);
             return Ok(result);
         }
