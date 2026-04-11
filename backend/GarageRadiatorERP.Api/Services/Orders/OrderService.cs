@@ -428,6 +428,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
+
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;
@@ -525,6 +527,8 @@ namespace GarageRadiatorERP.Api.Services.Orders
                         .Select(g => new { ProductId = g.Key, TotalStock = g.Sum(b => b.RemainingQuantity) })
                         .ToDictionaryAsync(x => x.ProductId, x => x.TotalStock);
                 }
+
+
                 foreach(var kvp in syncStockDict)
                 {
                     var productId = kvp.Key;

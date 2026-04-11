@@ -49,6 +49,8 @@ namespace GarageRadiatorERP.Tests.Utilities
             // The manual fallback uses .AddHours(7)
             Assert.True(difference.TotalHours >= 6.9 && difference.TotalHours <= 7.1, $"Time difference was {difference.TotalHours} hours");
         }
+
+        [Fact]
         public void GetLocalTime_WithValidTimeZone_DoesNotThrow()
         {
             // Act
@@ -98,6 +100,7 @@ namespace GarageRadiatorERP.Tests.Utilities
             var timeDifference = result - utcNowBefore;
 
             timeDifference.TotalHours.Should().BeInRange(6.99, 7.01, "Fallback adds 7 hours to UTC");
+            result.Kind.Should().BeOneOf(DateTimeKind.Utc, DateTimeKind.Unspecified); // Because utcNow.AddHours(7) preserves Utc Kind
             result.Kind.Should().Be(DateTimeKind.Unspecified);
         }
     }
