@@ -104,7 +104,6 @@ namespace GarageRadiatorERP.Api.Data
                 .WithOne(o => o.OnlineDetails)
                 .HasForeignKey<OnlineOrderDetails>(d => d.OrderId);
 
-            // Fix sai số giá vốn (Lỗi 23) và phân chia Precision
             var decimalProps = builder.Model.GetEntityTypes()
                 .SelectMany(t => t.GetProperties())
                 .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?));
