@@ -43,11 +43,11 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error("Request timed out. Vui lòng thử lại sau.");
+        return Promise.reject(new Error("Request timed out. Vui lòng thử lại sau."));
       }
-      throw new Error(`Network Error: ${error.message}`);
+      return Promise.reject(new Error(`Network Error: ${error.message}`));
     }
-    throw new Error(`Network Error: ${String(error)}`);
+    return Promise.reject(new Error(`Network Error: ${String(error)}`));
   } finally {
     clearTimeout(timeoutId);
   }

@@ -22,8 +22,6 @@ export default function SuperAdminSettingsPage() {
   const fetchSettings = async () => {
     try {
       const res = await fetch(`${BASE_URL}/system-admin/settings`, {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
-      const res = await fetch(`${apiUrl}/api/v1/system-admin/settings`, {
         credentials: "include"
       });
       if (res.ok) {
