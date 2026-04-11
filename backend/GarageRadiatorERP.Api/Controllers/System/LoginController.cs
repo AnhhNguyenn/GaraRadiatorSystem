@@ -137,6 +137,64 @@ namespace GarageRadiatorERP.Api.Controllers.System
             Response.Cookies.Append("access_token", token, cookieOptions);
         }
 
+        public class CreateStaffRequest
+        {
+            public string Email { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string Role { get; set; } = string.Empty;
+        }
+
+        [HttpPost("staff")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request)
+        {
+            var tenantIdStr = User.FindFirstValue("TenantId");
+            if (string.IsNullOrEmpty(tenantIdStr))
+                return BadRequest("Tenant ID is required to create a staff account.");
+
+            if (!Guid.TryParse(tenantIdStr, out var tenantId))
+                return BadRequest("Invalid Tenant ID format.");
+
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole != "SuperAdmin" && currentUserRole != "Admin")
+            {
+                return Forbid("Chỉ Admin mới có quyền tạo tài khoản nhân viên.");
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                FullName = request.Name,
+                TenantId = tenantId,
+                MustChangePassword = true // Yêu cầu đổi mật khẩu lần đầu
+            };
+
+            var result = await _userManager.CreateAsync(user, request.Password);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            // Gán Role
+            var roleResult = await _userManager.AddToRoleAsync(user, string.IsNullOrEmpty(request.Role) ? "Staff" : request.Role);
+            if (!roleResult.Succeeded)
+            {
+                return BadRequest(roleResult.Errors);
+            }
+
+            return Ok(new { message = "Staff account created successfully", userId = user.Id });
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("access_token");
+            return Ok(new { message = "Logged out successfully" });
+        }
+
         [HttpGet("me")]
         [Microsoft.AspNetCore.Authorization.Authorize]
         public IActionResult GetCurrentUser()

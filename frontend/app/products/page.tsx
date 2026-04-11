@@ -37,6 +37,9 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
   useEffect(() => {
     loadProducts();
     loadCategories();
@@ -155,6 +158,13 @@ export default function ProductsPage() {
     }
   };
 
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || product.categoryName === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div className="space-y-8 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 px-2">
@@ -190,10 +200,12 @@ export default function ProductsPage() {
             <Input
               placeholder="Tìm tên sản phẩm, mã, dòng xe..."
               className="pl-11"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex gap-3 w-full sm:w-auto">
-            <Select defaultValue="all">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-11 w-full sm:w-auto rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold text-slate-600 outline-none focus:bg-white focus:ring-4 focus:ring-primary/10 transition-all">
                 <SelectValue placeholder="Danh mục" />
               </SelectTrigger>
@@ -234,7 +246,7 @@ export default function ProductsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product: Product) => (
+              filteredProducts.map((product: Product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-bold text-slate-400 text-xs">{product.sku || 'N/A'}</TableCell>
                   <TableCell className="font-extrabold text-slate-900">{product.name}</TableCell>
