@@ -96,4 +96,47 @@ describe('LoginPage Error Handling', () => {
       expect(toast.error).toHaveBeenCalledWith('Từ chối truy cập: Server error occurred', expect.any(Object));
     });
   });
+
+  it('shows error toast when email or password is empty without calling fetch', async () => {
+    render(<LoginPage />);
+
+    fireEvent.click(screen.getByText('Truy cập hệ thống'));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Vui lòng nhập đầy đủ thông tin để đăng nhập.');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  it('updates loading state correctly during network error', async () => {
+    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network disconnected'));
+
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByPlaceholderText('admin@yourgarage.com'), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+      target: { value: 'password123' },
+    });
+
+    const submitButton = screen.getByRole('button', { name: /truy cập hệ thống/i });
+    expect(submitButton).not.toBeDisabled();
+
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Đang xử lý...')).toBeInTheDocument();
+      expect(submitButton).toBeDisabled();
+    });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Mất kết nối máy chủ. Vui lòng kiểm tra lại mạng hoặc liên hệ quản trị viên.', expect.any(Object));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Đang xử lý...')).not.toBeInTheDocument();
+      expect(screen.getByText('Truy cập hệ thống')).toBeInTheDocument();
+    });
+  });
 });

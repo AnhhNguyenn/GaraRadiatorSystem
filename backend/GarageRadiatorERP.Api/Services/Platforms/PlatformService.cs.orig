@@ -135,13 +135,13 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 var apiUrl = "https://partner.shopeemobile.com/api/v2/sellerchat/send_message";
                 try
                 {
-                    var token = await _context.PlatformTokens.Where(t => t.Store.PlatformName == "Shopee").Select(t => t.AccessToken).FirstOrDefaultAsync();
-                    using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                    if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                    var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
                     var messageType = imageUrl != null ? "image" : "text";
                     var content = imageUrl != null ? (object)new { image_url = imageUrl } : (object)new { text = messageText };
-                    request.Content = global::System.Net.Http.Json.JsonContent.Create(new { to_id = buyerId, message_type = messageType, content = content });
-                    var response = await client.SendAsync(request);
+
+                    var response = await client.PostAsJsonAsync(apiUrl, new { to_id = buyerId, message_type = messageType, content = content });
                     response.EnsureSuccessStatusCode();
                     Console.WriteLine($"[Shopee Chat] Gửi tin nhắn thành công tới {buyerId}");
                 }
@@ -152,12 +152,11 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                 var apiUrl = "https://open-api.tiktokglobalshop.com/api/im/message/send";
                 try
                 {
-                    var token = await _context.PlatformTokens.Where(t => t.Store.PlatformName == "TikTok").Select(t => t.AccessToken).FirstOrDefaultAsync();
-                    using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                    if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                    var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
+                    if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
                     var messageType = imageUrl != null ? 2 : 1; // 1: text, 2: image
-                    request.Content = global::System.Net.Http.Json.JsonContent.Create(new { conversation_id = buyerId, message_type = messageType, content = imageUrl ?? messageText });
-                    var response = await client.SendAsync(request);
+                    var response = await client.PostAsJsonAsync(apiUrl, new { conversation_id = buyerId, message_type = messageType, content = imageUrl ?? messageText });
                     response.EnsureSuccessStatusCode();
                     Console.WriteLine($"[TikTok Chat] Gửi tin nhắn thành công tới {buyerId}");
                 }
@@ -258,11 +257,10 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             if (orderDetail.Platform == "Shopee")
             {
                 var apiUrl = "https://partner.shopeemobile.com/api/v2/logistics/ship_order";
-                var token = await _context.PlatformTokens.Where(t => t.Store.PlatformName == "Shopee").Select(t => t.AccessToken).FirstOrDefaultAsync();
-                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                request.Content = global::System.Net.Http.Json.JsonContent.Create(new { order_sn = orderDetail.PlatformOrderId, dropoff = new { tracking_number = "" } });
-                var res = await client.SendAsync(request);
+                var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "Shopee");
+                if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                var res = await client.PostAsJsonAsync(apiUrl, new { order_sn = orderDetail.PlatformOrderId, dropoff = new { tracking_number = "" } });
                 res.EnsureSuccessStatusCode();
 
                 orderDetail.CourierName = "SPX Express";
@@ -272,11 +270,10 @@ namespace GarageRadiatorERP.Api.Services.Platforms
             else if (orderDetail.Platform == "TikTok")
             {
                 var apiUrl = "https://open-api.tiktokglobalshop.com/api/logistics/ship/detail";
-                var token = await _context.PlatformTokens.Where(t => t.Store.PlatformName == "TikTok").Select(t => t.AccessToken).FirstOrDefaultAsync();
-                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                request.Content = global::System.Net.Http.Json.JsonContent.Create(new { order_id = orderDetail.PlatformOrderId, pick_up_type = shippingMethod == "dropoff" ? 1 : 2 });
-                var res = await client.SendAsync(request);
+                var token = await _context.PlatformTokens.FirstOrDefaultAsync(t => t.Store.PlatformName == "TikTok");
+                if (token != null) client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.AccessToken}");
+
+                var res = await client.PostAsJsonAsync(apiUrl, new { order_id = orderDetail.PlatformOrderId, pick_up_type = shippingMethod == "dropoff" ? 1 : 2 });
                 res.EnsureSuccessStatusCode();
 
                 orderDetail.CourierName = "J&T Express";
@@ -320,7 +317,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     {
                         using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                         if (!string.IsNullOrEmpty(accessToken))
-                            request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
                         request.Content = global::System.Net.Http.Json.JsonContent.Create(new
                         {
@@ -341,7 +338,7 @@ namespace GarageRadiatorERP.Api.Services.Platforms
                     {
                         using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                         if (!string.IsNullOrEmpty(accessToken))
-                            request.Headers.Authorization = new global::System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
                         request.Content = global::System.Net.Http.Json.JsonContent.Create(new
                         {

@@ -52,7 +52,6 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
     clearTimeout(timeoutId);
   }
 
-
   // Fix Bắt lỗi thả trôi (Lỗi 52/17)
   if (!response.ok) {
     if (response.status === 401) {
