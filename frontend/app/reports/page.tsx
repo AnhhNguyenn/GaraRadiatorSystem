@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 const tabs = [
   { id: 'financial', name: 'Báo cáo tài chính' },
@@ -55,7 +56,7 @@ export default function ReportsPage() {
   };
 
   const handleExport = () => {
-    alert('Đang kết xuất báo cáo đa nền tảng...');
+    toast.success('Đang kết xuất báo cáo đa nền tảng...');
   };
 
   return (

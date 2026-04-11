@@ -4,14 +4,8 @@ import { useRouter } from 'next/navigation';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
-
-  useEffect(() => {
-    // Để AuthError event handle việc redirect
-    setAuthorized(true);
-  }, [router]);
-
-  if (!authorized) return <div className="p-10 text-center">Đang kiểm tra quyền truy cập...</div>;
+  // Using true since auth error interception handles the security bounce
+  const authorized = true;
 
   return (
     <div className="bg-slate-900 min-h-screen text-slate-50">

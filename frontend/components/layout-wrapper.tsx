@@ -10,6 +10,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isLoginPage = pathname === '/login' || pathname === '/change-password';
+  const isSuperAdminPage = pathname.startsWith('/super-admin');
+
+  if (isLoginPage || isSuperAdminPage) {
 
   if (isLoginPage) {
     return <>{children}</>;

@@ -91,7 +91,7 @@ export default function ReviewsPage() {
                     <span className="px-2 py-1 text-[10px] font-black uppercase rounded bg-slate-100 text-slate-600">{review.platform}</span>
                  </div>
               </div>
-              <p className="text-slate-700 italic text-sm">"{review.comment || 'Khách hàng không để lại nhận xét'}"</p>
+              <p className="text-slate-700 italic text-sm">&quot;{review.comment || 'Khách hàng không để lại nhận xét'}&quot;</p>
 
               {review.reply ? (
                  <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mt-2">
@@ -113,7 +113,7 @@ export default function ReviewsPage() {
         {selectedReview && (
            <form className="space-y-6" onSubmit={handleReplySubmit}>
              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
-               <p className="text-sm italic text-slate-600">"{selectedReview.comment}"</p>
+               <p className="text-sm italic text-slate-600">&quot;{selectedReview.comment}&quot;</p>
              </div>
              <div>
                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Nội dung trả lời *</label>
