@@ -445,6 +445,11 @@ namespace GarageRadiatorERP.Api.Services.Orders
 
                 await transaction.CommitAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                await transaction.RollbackAsync();
+                throw new Exception("Quá nhiều giao dịch đồng thời, vui lòng thử lại sau (Concurrency Conflict).");
+            }
             catch
             {
                 await transaction.RollbackAsync();
