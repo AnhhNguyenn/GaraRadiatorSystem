@@ -43,6 +43,31 @@ namespace GarageRadiatorERP.Api.Controllers.Products
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateProduct(Guid id, CreateProductDto updateDto, [FromServices] GarageRadiatorERP.Api.Data.AppDbContext _context)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            product.Name = updateDto.Name;
+            product.StandardCost = updateDto.StandardCost;
+            // Simplified update for demo
+
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProduct(Guid id, [FromServices] GarageRadiatorERP.Api.Data.AppDbContext _context)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
         [HttpGet("categories")]
         public async Task<ActionResult<IEnumerable<string>>> GetCategories([FromServices] GarageRadiatorERP.Api.Data.AppDbContext dbContext, global::System.Threading.CancellationToken cancellationToken)
         {
