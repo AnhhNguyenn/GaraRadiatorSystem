@@ -34,6 +34,7 @@ const navItems = [
   { name: 'Khách hàng', href: '/customers', icon: Users, roles: ['TenantAdmin', 'Staff'] },
   { name: 'Báo cáo', href: '/reports', icon: BarChart3, roles: ['TenantAdmin'] },
   { name: 'Cài đặt', href: '/settings', icon: Settings, roles: ['TenantAdmin'] },
+  { name: 'Super Admin', href: '/super-admin/dashboard', icon: Settings, roles: ['SuperAdmin'] },
 ];
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {

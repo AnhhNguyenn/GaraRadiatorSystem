@@ -43,7 +43,7 @@ export default function TenantsPage() {
   const handleImpersonate = (id: string) => {
     toast.success('Đang sinh JWT Read-Only... Cửa hậu đã mở', { icon: '🚪' });
     setTimeout(() => {
-      window.open('/dashboard?impersonate=' + id, '_blank');
+      window.open('/?impersonate=' + id, '_blank');
     }, 1500);
   };
 

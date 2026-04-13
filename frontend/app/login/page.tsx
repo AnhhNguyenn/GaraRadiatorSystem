@@ -38,7 +38,7 @@ export default function LoginPage() {
            router.push("/change-password");
         } else {
            toast.success("Đăng nhập hệ thống Gara thành công!", { id: toastId });
-           router.push("/dashboard");
+           router.push("/");
         }
       } else {
         let errText = "Tài khoản hoặc mật khẩu không chính xác.";
