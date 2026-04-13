@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/apiClient';
 import { usePathname, useRouter } from 'next/navigation';
@@ -20,8 +19,6 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/apiClient';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -140,14 +137,6 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           })}
         </nav>
       </div>
-      <div className="p-6 mt-auto">
-        <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-3xl border border-slate-100">
-          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shadow-inner uppercase">
-            {userName.substring(0, 2)}
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-slate-900 leading-none mb-1 truncate max-w-[120px]">{userName}</span>
-            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{userRoleDisplay}</span>
       <div className="p-4 sm:p-6 mt-auto">
         <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 sm:p-3 rounded-3xl border border-slate-100 group">
           <div className="flex items-center gap-3">
