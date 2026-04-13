@@ -57,7 +57,7 @@ export default function ChangePasswordPage() {
       if (response.ok) {
         toast.success("Đổi mật khẩu thành công! Chào mừng đến hệ thống.", { id: toastId });
         sessionStorage.removeItem("change_password_user_id");
-        router.push("/dashboard");
+        router.push("/");
       } else {
         let errText = "Đổi mật khẩu thất bại.";
         try {

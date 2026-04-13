@@ -89,6 +89,8 @@ async function fetchFromApi(endpoint: string, options: ExtendedRequestInit = {})
 export const api = {
   auth: {
     me: () => fetchFromApi('/auth/me'),
+    createStaff: (data: any) => fetchFromApi('/auth/staff', { method: 'POST', body: JSON.stringify(data) }),
+    logout: () => fetchFromApi('/auth/logout', { method: 'POST' }),
   },
   products: {
     // Bối cảnh 4: Fix Pagination Metadata, giữ nguyên Object DTO có TotalCount để Frontend Pagination có thể đọc
@@ -102,6 +104,7 @@ export const api = {
     update: (id: string, data: any) => fetchFromApi(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchFromApi(`/products/${id}`, { method: 'DELETE' }),
     categories: () => fetchFromApi('/products/categories'),
+    createCategory: (data: any) => fetchFromApi('/products/categories', { method: 'POST', body: JSON.stringify(data) }),
     createMapping: (id: string, data: any) => fetchFromApi(`/products/${id}/mappings`, { method: 'POST', body: JSON.stringify(data) }),
   },
   inventory: {
